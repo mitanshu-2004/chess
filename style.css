@@ -53,3 +53,33 @@ i {
     font-size: 32px;
 }
 
+/* Highlight for selected piece */
+.square.highlight {
+    background-color: rgba(255, 255, 0, 0.6); /* Yellowish highlight */
+}
+
+/* Highlight for possible moves */
+.square.can-move {
+    position: relative;
+}
+
+.square.can-move::after {
+    content: "";
+    position: absolute;
+    width: 25%;
+    height: 25%;
+    background-color: rgb(115, 156, 146); /* Solid color */
+    border-radius: 50%;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    opacity: 0.3; /* Transparency control */
+}
+.en-passant-target {
+    background-color: red !important;
+}
+
+/* If a move is a capture (taking an opponent's piece) */
+.square.can-capture {
+    border: 2px solid rgba(200, 0, 0, 0.8); /* Darker red border */
+}
