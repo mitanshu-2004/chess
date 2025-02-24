@@ -289,6 +289,8 @@ document.querySelectorAll(".square").forEach(square => {
                     targetSquare.firstChild.remove();
                 }
                 targetSquare.appendChild(selectedPiece);
+                document.querySelectorAll(".square").forEach(sq => sq.classList.remove("highlight", "can-move", "can-capture","king-capture"));
+                
 
                 if (selectedPiece.dataset.type === "pawn" && (
                     (selectedPiece.dataset.color === "l" && row === 7) ||
@@ -339,15 +341,15 @@ document.querySelectorAll(".square").forEach(square => {
                     selectedPiece = null;
                     selectedPos = null;
                     cursorPiece.className = "cursor-piece fa-solid";
-                    document.querySelectorAll(".square").forEach(sq => sq.classList.remove("highlight", "can-move", "can-capture"));
-                    alert("Invalid Move: King in Check!");
+                    document.querySelectorAll(".square").forEach(sq => sq.classList.remove("highlight", "can-move", "can-capture","king-capture"));
                     return;
                 }
 
                 player = player === "l" ? "d" : "l";
                 inCheck[player] = isKingInCheck(player);
                 if (inCheck[player]) {
-                    alert(`${player.toUpperCase()} is in check!`);
+                    const poss=findKing(player);
+                    document.querySelectorAll(".square")[poss[0]*8+poss[1]].classList.add("king-capture");
                 }
 
 

@@ -83,3 +83,7 @@ i {
 .square.can-capture {
     border: 2px solid rgba(200, 0, 0, 0.8); /* Darker red border */
 }
+.king-capture {
+    border: 2px solid rgba(200, 0, 0, 0.8); /* Darker red border */
+}
+
