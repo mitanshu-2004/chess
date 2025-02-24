@@ -2,6 +2,31 @@ const chessboard = document.querySelector(".chessboard");
 let can_en_passant = null;
 let player = "l";
 
+const promotionModal = document.createElement("div");
+promotionModal.style.display = "none";
+promotionModal.style.position = "fixed";
+promotionModal.style.top = "50%";
+promotionModal.style.left = "50%";
+promotionModal.style.transform = "translate(-50%, -50%)";
+promotionModal.style.backgroundColor = "#fff";
+promotionModal.style.padding = "20px";
+promotionModal.style.borderRadius = "10px";
+promotionModal.style.boxShadow = "0 0 10px rgba(0,0,0,0.5)";
+promotionModal.style.zIndex = "1000";
+document.body.appendChild(promotionModal);
+
+// Create backdrop
+const backdrop = document.createElement("div");
+backdrop.style.display = "none";
+backdrop.style.position = "fixed";
+backdrop.style.top = "0";
+backdrop.style.left = "0";
+backdrop.style.width = "100%";
+backdrop.style.height = "100%";
+backdrop.style.backgroundColor = "rgba(0,0,0,0.5)";
+backdrop.style.zIndex = "999";
+document.body.appendChild(backdrop);
+
 const pieces = {
     "rook": "fa-chess-rook",
     "knight": "fa-chess-knight",
@@ -189,7 +214,7 @@ function return_moves(piece_type, colour, position) {
 }
 
 document.querySelectorAll(".square").forEach(square => {
-    square.addEventListener("click", (event) => {
+    square.addEventListener("click", async (event) => {
         const piece = event.target.closest("i");
         const row = parseInt(square.dataset.row);
         const col = parseInt(square.dataset.col);
@@ -210,10 +235,22 @@ document.querySelectorAll(".square").forEach(square => {
             let availableMoves = return_moves(selectedPiece.dataset.type, selectedPiece.dataset.color, [row, col]);
             availableMoves.forEach(([r, c]) => {
                 const targetSquare = document.querySelector(`.square[data-row='${r}'][data-col='${c}']`);
-                if (targetSquare.children.length > 0 || 
-                    (selectedPiece.dataset.type === "pawn" && c !== col)) {
+                if (targetSquare.children.length > 0 ) {
                     targetSquare.classList.add("can-capture");
-                } else {
+                } 
+                else if(targetSquare.children.length == 0 &&
+                    (selectedPiece.dataset.type === "pawn" && c !== col)){
+                        if(selectedPiece.dataset.color=="l"){
+                            document.querySelector(`.square[data-row='${r-1}'][data-col='${c}']`).classList.add("can-capture");
+                            targetSquare.classList.add("can-move");
+                        }
+                        else if(selectedPiece.dataset.color=="d"){
+                            document.querySelector(`.square[data-row='${r+1}'][data-col='${c}']`).classList.add("can-capture");
+                            targetSquare.classList.add("can-move");
+                        }
+                        
+                    }
+                else {
                     targetSquare.classList.add("can-move");
                 }
             });
@@ -266,21 +303,43 @@ document.querySelectorAll(".square").forEach(square => {
                     square.children[0].remove();
                 }
                 square.appendChild(selectedPiece);
-                if (selectedPiece.dataset.type === "pawn") {
-                    if (selectedPiece.dataset.color === "l" && row == 7 ||
-                        selectedPiece.dataset.color === "d" && row == 0) {
-                        // Simple prompt for promotion choice
-                        let promotion = prompt("Promote pawn to (queen, rook, bishop, knight):", "queen");
-                        // Validate promotion choice; default to queen if invalid
-                        if (!["queen", "rook", "bishop", "knight"].includes(promotion)) {
-                            promotion = "queen";
-                        }
-                        // Update class and dataset type for the promoted piece
-                        selectedPiece.classList.remove(pieces["pawn"]);
-                        selectedPiece.classList.add(pieces[promotion]);
-                        selectedPiece.dataset.type = promotion;
-                    }
+                
+                if (selectedPiece.dataset.type === "pawn" && 
+                    ((selectedPiece.dataset.color === "l" && row === 7) || 
+                     (selectedPiece.dataset.color === "d" && row === 0))) {
+                    
+                    // Show promotion modal
+                    promotionModal.innerHTML = `
+                        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
+                            <i class="fa-solid ${pieces.queen}" style="font-size: 2em; cursor: pointer; color: ${selectedPiece.style.color}"></i>
+                            <i class="fa-solid ${pieces.rook}" style="font-size: 2em; cursor: pointer; color: ${selectedPiece.style.color}"></i>
+                            <i class="fa-solid ${pieces.bishop}" style="font-size: 2em; cursor: pointer; color: ${selectedPiece.style.color}"></i>
+                            <i class="fa-solid ${pieces.knight}" style="font-size: 2em; cursor: pointer; color: ${selectedPiece.style.color}"></i>
+                        </div>
+                    `;
+                    promotionModal.style.display = "block";
+                    backdrop.style.display = "block";
+
+                    // Wait for promotion piece selection
+                    const promotionPiece = await new Promise(resolve => {
+                        const pieces = promotionModal.querySelectorAll("i");
+                        pieces.forEach(piece => {
+                            piece.addEventListener("click", () => {
+                                const pieceType = piece.classList[1].replace("fa-chess-", "");
+                                resolve(pieceType);
+                            });
+                        });
+                    });
+
+                    // Hide modal
+                    promotionModal.style.display = "none";
+                    backdrop.style.display = "none";
+
+                    // Create new promoted piece
+                    selectedPiece.dataset.type = promotionPiece;
+                    selectedPiece.className = `fa-solid ${pieces[promotionPiece]}`;
                 }
+
                 selectedPiece.dataset.moved = "true";
 
                 // Update en passant possibility
