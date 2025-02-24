@@ -1,6 +1,6 @@
 const chessboard = document.querySelector(".chessboard");
-let can_en_passant=null;
-let player="l";
+let can_en_passant = null;
+let player = "l";
 
 const pieces = {
     "rook": "fa-chess-rook",
@@ -60,7 +60,6 @@ function spawn_pieces(board) {
                 piece.dataset.type = board[i][j].slice(0, -1);
                 piece.dataset.color = board[i][j].slice(-1);
                 piece.dataset.moved = "false";
-
                 chessboard.children[i * 8 + j].appendChild(piece);
             }
         }
@@ -86,9 +85,9 @@ function return_moves(piece_type, colour, position) {
                 } else {
                     let targetPiece = targetSquare.children[0];
                     if (targetPiece.dataset.color !== colour) {
-                        available_moves.push([r, c]); // Can capture opponent
+                        available_moves.push([r, c]);
                     }
-                    break; // Stop after hitting any piece
+                    break;
                 }
                 r += dx;
                 c += dy;
@@ -102,6 +101,7 @@ function return_moves(piece_type, colour, position) {
         let startRow = colour === "l" ? 1 : 6;
         let row = position[0], col = position[1];
 
+        // Normal forward moves
         if (squares[(row + direction) * 8 + col].children.length === 0) {
             available_moves.push([row + direction, col]);
             if (row === startRow && squares[(row + 2 * direction) * 8 + col].children.length === 0) {
@@ -109,39 +109,36 @@ function return_moves(piece_type, colour, position) {
             }
         }
 
+        // Normal captures
         for (let dc of [-1, 1]) {
             let captureCol = col + dc;
             if (captureCol >= 0 && captureCol < 8) {
-                let captureSquare = squares[(row + direction) * 8 + captureCol].children[0];
-                if (captureSquare && captureSquare.dataset.color !== colour) {
+                let captureSquare = squares[(row + direction) * 8 + captureCol];
+                if (captureSquare.children.length > 0 && captureSquare.children[0].dataset.color !== colour) {
                     available_moves.push([row + direction, captureCol]);
                 }
             }
         }
-        if(can_en_passant){
-            const en_colour=squares[(can_en_passant[0]) * 8 + can_en_passant[1]].children[0].dataset.color;
-            if(Math.abs(can_en_passant[1] - col)==1){
-                if(en_colour=="l"){
-                    available_moves.push([row-1,can_en_passant[1]]);
-                }
-                if(en_colour=="d"){
-                    available_moves.push([row+1,can_en_passant[1]]);
-                }
-                
+
+        // En passant
+        if (can_en_passant) {
+            const [enPassantRow, enPassantCol] = can_en_passant;
+            if (row === enPassantRow && Math.abs(col - enPassantCol) === 1) {
+                available_moves.push([row + direction, enPassantCol]);
             }
         }
     }
 
     else if (piece_type === "rook") {
-        add_moves([[-1, 0], [1, 0], [0, -1], [0, 1]], -1); // Up, Down, Left, Right
+        add_moves([[-1, 0], [1, 0], [0, -1], [0, 1]], -1);
     }
 
     else if (piece_type === "bishop") {
-        add_moves([[-1, -1], [-1, 1], [1, -1], [1, 1]], -1); // Diagonal moves
+        add_moves([[-1, -1], [-1, 1], [1, -1], [1, 1]], -1);
     }
 
     else if (piece_type === "queen") {
-        add_moves([[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [-1, 1], [1, -1], [1, 1]], -1); // Rook + Bishop
+        add_moves([[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [-1, 1], [1, -1], [1, 1]], -1);
     }
 
     else if (piece_type === "knight") {
@@ -151,14 +148,41 @@ function return_moves(piece_type, colour, position) {
             if (r >= 0 && r < 8 && c >= 0 && c < 8) {
                 let targetSquare = squares[r * 8 + c];
                 if (targetSquare.children.length === 0 || targetSquare.children[0].dataset.color !== colour) {
-                    available_moves.push([r, c]); // Can move or capture
+                    available_moves.push([r, c]);
                 }
             }
         }
     }
 
     else if (piece_type === "king") {
-        add_moves([[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [-1, 1], [1, -1], [1, 1]], 1); // One step in all directions
+        add_moves([[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [-1, 1], [1, -1], [1, 1]], 1);
+        
+        const baseRow = colour === "l" ? 0 : 7;
+        if (position[0] === baseRow && position[1] === 4) {
+            const king = squares[baseRow * 8 + 4].children[0];
+            if (king && king.dataset.moved === "false") {
+                // Kingside castling
+                const kingsideRook = squares[baseRow * 8 + 7].children[0];
+                if (kingsideRook && 
+                    kingsideRook.dataset.type === "rook" && 
+                    kingsideRook.dataset.moved === "false" &&
+                    !squares[baseRow * 8 + 5].children.length &&
+                    !squares[baseRow * 8 + 6].children.length) {
+                    available_moves.push([baseRow, 6]);
+                }
+                
+                // Queenside castling
+                const queensideRook = squares[baseRow * 8 + 0].children[0];
+                if (queensideRook && 
+                    queensideRook.dataset.type === "rook" && 
+                    queensideRook.dataset.moved === "false" &&
+                    !squares[baseRow * 8 + 1].children.length &&
+                    !squares[baseRow * 8 + 2].children.length &&
+                    !squares[baseRow * 8 + 3].children.length) {
+                    available_moves.push([baseRow, 2]);
+                }
+            }
+        }
     }
 
     return available_moves;
@@ -166,12 +190,12 @@ function return_moves(piece_type, colour, position) {
 
 document.querySelectorAll(".square").forEach(square => {
     square.addEventListener("click", (event) => {
-        const piece = event.target.closest("i"); 
+        const piece = event.target.closest("i");
         const row = parseInt(square.dataset.row);
         const col = parseInt(square.dataset.col);
 
         if (!selectedPiece && piece) {
-            if(piece.dataset.color!=player){
+            if (piece.dataset.color != player) {
                 return;
             }
             selectedPiece = piece;
@@ -184,25 +208,10 @@ document.querySelectorAll(".square").forEach(square => {
             cursorPiece.style.color = selectedPiece.style.color;
 
             let availableMoves = return_moves(selectedPiece.dataset.type, selectedPiece.dataset.color, [row, col]);
-            
-            if(can_en_passant){
-                const targetSquare = document.querySelector(`.square[data-row='${can_en_passant[0]}'][data-col='${can_en_passant[1]}']`);
-                
-                const targetSquare_1 = document.querySelector(`.square[data-row='${can_en_passant[0]}'][data-col='${can_en_passant[1]+1}']`);
-                
-                const targetSquare_2 = document.querySelector(`.square[data-row='${can_en_passant[0]}'][data-col='${can_en_passant[1]-1}']`);
-                
-                
-                if(targetSquare_1==square){
-                    targetSquare.classList.add("can-capture");
-                }
-                else if(targetSquare_2==square){
-                    targetSquare.classList.add("can-capture");
-                }
-            }
             availableMoves.forEach(([r, c]) => {
                 const targetSquare = document.querySelector(`.square[data-row='${r}'][data-col='${c}']`);
-                if (targetSquare.children.length > 0) {
+                if (targetSquare.children.length > 0 || 
+                    (selectedPiece.dataset.type === "pawn" && c !== col)) {
                     targetSquare.classList.add("can-capture");
                 } else {
                     targetSquare.classList.add("can-move");
@@ -220,50 +229,76 @@ document.querySelectorAll(".square").forEach(square => {
 
             let availableMoves = return_moves(selectedPiece.dataset.type, selectedPiece.dataset.color, [selectedPos.row, selectedPos.col]);
             let validMove = availableMoves.some(move => JSON.stringify(move) === JSON.stringify([row, col]));
-            if (selectedPiece.dataset.type == "pawn") {
-                if (Math.abs(selectedPos.row - row) == 2) {
-                    
-                    can_en_passant = [row, col];
-                } 
-                else if(selectedPiece.dataset.type=="pawn" && Math.abs(selectedPos.row - row) == 1 && Math.abs(selectedPos.col - col) == 1 && square.children.length==0) {
-                    
-                    console.log("Something");
-                    let capturedPawnRow = selectedPos.row;
-                    let capturedPawnCol = col;
-            
-                    let capturedPawnSquare = document.querySelector(`.square[data-row='${capturedPawnRow}'][data-col='${capturedPawnCol}']`);
-                    if (capturedPawnSquare.children.length > 0 && capturedPawnSquare.children[0].dataset.type == "pawn") {
+
+            if (validMove) {
+                // Handle castling moves
+                if (selectedPiece.dataset.type === "king" && Math.abs(selectedPos.col - col) === 2) {
+                    const baseRow = selectedPiece.dataset.color === "l" ? 0 : 7;
+                    if (col === 6) {
+                        const rook = document.querySelector(`.square[data-row='${baseRow}'][data-col='7']`).children[0];
+                        document.querySelector(`.square[data-row='${baseRow}'][data-col='5']`).appendChild(rook);
+                        rook.dataset.moved = "true";
+                    }
+                    else if (col === 2) {
+                        const rook = document.querySelector(`.square[data-row='${baseRow}'][data-col='0']`).children[0];
+                        document.querySelector(`.square[data-row='${baseRow}'][data-col='3']`).appendChild(rook);
+                        rook.dataset.moved = "true";
+                    }
+                }
+
+                // Handle en passant capture
+                if (selectedPiece.dataset.type === "pawn" && 
+                    Math.abs(selectedPos.col - col) === 1 && 
+                    square.children.length === 0) {
+                    const capturedPawnRow = selectedPos.row;
+                    const capturedPawnCol = col;
+                    const capturedPawnSquare = document.querySelector(
+                        `.square[data-row='${capturedPawnRow}'][data-col='${capturedPawnCol}']`
+                    );
+                    if (capturedPawnSquare.children.length > 0 && 
+                        capturedPawnSquare.children[0].dataset.type === "pawn") {
                         capturedPawnSquare.children[0].remove();
                     }
-                    can_en_passant = null; 
-                } 
-                else {
-                    console.log("en removed");
-                    can_en_passant = null; 
                 }
-            }
-            
-            
-            
-            if (validMove) {
+
+                // Move piece to new square
                 if (square.children.length > 0) {
                     square.children[0].remove();
                 }
                 square.appendChild(selectedPiece);
+                if (selectedPiece.dataset.type === "pawn") {
+                    if (selectedPiece.dataset.color === "l" && row == 7 ||
+                        selectedPiece.dataset.color === "d" && row == 0) {
+                        // Simple prompt for promotion choice
+                        let promotion = prompt("Promote pawn to (queen, rook, bishop, knight):", "queen");
+                        // Validate promotion choice; default to queen if invalid
+                        if (!["queen", "rook", "bishop", "knight"].includes(promotion)) {
+                            promotion = "queen";
+                        }
+                        // Update class and dataset type for the promoted piece
+                        selectedPiece.classList.remove(pieces["pawn"]);
+                        selectedPiece.classList.add(pieces[promotion]);
+                        selectedPiece.dataset.type = promotion;
+                    }
+                }
+                selectedPiece.dataset.moved = "true";
+
+                // Update en passant possibility
+                if (selectedPiece.dataset.type === "pawn" && 
+                    Math.abs(selectedPos.row - row) === 2) {
+                    can_en_passant = [row, col];
+                } else {
+                    can_en_passant = null;
+                }
+
+                // Switch players
+                player = player === "l" ? "d" : "l";
             }
 
             document.querySelectorAll(".square").forEach(sq => sq.classList.remove("highlight", "can-move", "can-capture"));
-
             selectedPiece = null;
             selectedPos = null;
             cursorPiece.className = "cursor-piece fa-solid";
-            if(player=="l"){
-                player="d";
-            }
-            else if(player=="d"){
-                player="l";
-            }
-            
         }
     });
 });
