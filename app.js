@@ -164,7 +164,6 @@ function return_moves(piece_type, colour, position) {
     return available_moves;
 }
 
-
 document.querySelectorAll(".square").forEach(square => {
     square.addEventListener("click", (event) => {
         const piece = event.target.closest("i"); 
@@ -222,34 +221,29 @@ document.querySelectorAll(".square").forEach(square => {
             let availableMoves = return_moves(selectedPiece.dataset.type, selectedPiece.dataset.color, [selectedPos.row, selectedPos.col]);
             let validMove = availableMoves.some(move => JSON.stringify(move) === JSON.stringify([row, col]));
             if (selectedPiece.dataset.type == "pawn") {
-    if (Math.abs(selectedPos.row - row) == 2) {
-        // Pawn moves two squares, mark it for en passant
-        can_en_passant = [row, col, selectedPiece.dataset.color]; // Store color too
-    } 
-    else {
-        can_en_passant = null; // Reset if a normal move happens
-    }
-}
-
-// ✅ Only highlight *en passant* target when a valid capturing pawn is selected
-if (can_en_passant && selectedPiece.dataset.type === "pawn") {
-    let enPassantRow = can_en_passant[0];
-    let enPassantCol = can_en_passant[1];
-    let enPassantColor = can_en_passant[2];
-
-    // A pawn can only capture en passant if it's adjacent
-    if (
-        selectedPiece.dataset.color !== enPassantColor && // Opponent's pawn
-        selectedPos.row === enPassantRow && // Must be in the same row
-        Math.abs(selectedPos.col - enPassantCol) === 1 // Must be diagonally adjacent
-    ) {
-        let targetPawnSquare = document.querySelector(`.square[data-row='${enPassantRow}'][data-col='${enPassantCol}']`);
-        if (targetPawnSquare && targetPawnSquare.children.length > 0) {
-            targetPawnSquare.classList.add("can-capture");  // Highlight only when valid
-        }
-    }
-}
-
+                if (Math.abs(selectedPos.row - row) == 2) {
+                    
+                    can_en_passant = [row, col];
+                } 
+                else if(selectedPiece.dataset.type=="pawn" && Math.abs(selectedPos.row - row) == 1 && Math.abs(selectedPos.col - col) == 1 && square.children.length==0) {
+                    
+                    console.log("Something");
+                    let capturedPawnRow = selectedPos.row;
+                    let capturedPawnCol = col;
+            
+                    let capturedPawnSquare = document.querySelector(`.square[data-row='${capturedPawnRow}'][data-col='${capturedPawnCol}']`);
+                    if (capturedPawnSquare.children.length > 0 && capturedPawnSquare.children[0].dataset.type == "pawn") {
+                        capturedPawnSquare.children[0].remove();
+                    }
+                    can_en_passant = null; 
+                } 
+                else {
+                    console.log("en removed");
+                    can_en_passant = null; 
+                }
+            }
+            
+            
             
             if (validMove) {
                 if (square.children.length > 0) {
