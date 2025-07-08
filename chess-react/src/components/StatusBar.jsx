@@ -1,13 +1,12 @@
 import React from "react";
 
-const StatusBar = ({ isGameOver, abort, game, winner }) => (
+const StatusBar = ({ isGameOver, abort, ifTimeout, game, winner }) => (
   <div className="status-bar">
     {isGameOver
       ? game.isCheckmate()
         ? `Checkmate! ${winner} wins`
         : abort? `Game aborted! ${winner} wins`
-        : `Game drawn!`
-      :null}
+        : ifTimeout? `Game over due to timeout! ${winner} wins`:"draw":null}
   </div>
 );
 
