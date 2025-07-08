@@ -1,9 +1,15 @@
 html, body {
-  height: 100%;
   margin: 0;
   padding: 0;
-  overflow: hidden; /* Prevent body scrolling */
+  height: 100%;
+  font-family: 'Segoe UI', sans-serif;
+  overflow: hidden;
+
+  background: linear-gradient(120deg, #f2e9e4 0%, #d8cfc4 50%, #f9f4ef 100%);
 }
+
+
+
 
 .wrapper {
   display: flex;
@@ -11,13 +17,14 @@ html, body {
   justify-content: center;
   align-items: flex-start;
   gap: 2rem;
-  padding: 2rem;
+  padding: 1rem;
   background-color: #f4f4f4;
-  height: 100vh;         /* Lock to full screen height */
+  min-height: 100vh;       /* ✅ Don't force full height */
   box-sizing: border-box;
-  overflow: hidden;      /* Prevent scrolling */
+  overflow-y: auto;        /* ✅ Allow scrolling inside */
   flex-wrap: wrap;
 }
+
 /* Engine and Player Scores wrapper */
 .player-engine-wrapper {
   display: flex;
@@ -333,4 +340,126 @@ html, body {
 
 .start-btn:hover:enabled {
   background-color: #bf360c;
+}
+
+@media (max-width: 1024px) {
+  .wrapper {
+    flex-direction: column;
+    align-items: center;
+    padding: 1rem;
+    gap: 1.5rem;
+  }
+
+  .board-container {
+    width: 90vw;
+    max-width: 90vw;
+  }
+
+  .controls {
+    width: 100%;
+    max-width: 600px;
+    flex-direction: column;
+    align-items: center;
+    padding: 1rem;
+  }
+
+  .move-history-layout {
+    padding-top: 1rem;
+  }
+
+  .options {
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: auto;
+    gap: 8px;
+    padding-top: 2rem;
+  }
+
+  .start-btn {
+    grid-column: span 2;
+  }
+
+  .timer {
+    font-size: 1rem;
+    padding: 8px 12px;
+  }
+
+  .status-bar,
+  .detail-box {
+    font-size: 1.1rem;
+    padding: 0.5rem 0.8rem;
+  }
+
+  .square {
+    font-size: clamp(20px, 6vw, 36px);
+  }
+
+  .move-history {
+    min-height: 300px;
+    max-height: 400px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 600px) {
+  .options {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+  }
+
+  .start-btn {
+    grid-column: span 1;
+  }
+
+  .timer {
+    font-size: 0.95rem;
+    padding: 6px 10px;
+  }
+
+  .square {
+    font-size: clamp(18px, 7vw, 28px);
+  }
+
+  .status-bar,
+  .detail-box {
+    font-size: 1rem;
+  }
+
+  .move-history-layout {
+    padding-top: 1rem;
+  }
+
+  .move-history {
+    padding: 12px 14px;
+  }
+
+  .wrapper {
+    gap: 1rem;
+  }
+
+  .board-container {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .player-engine-wrapper {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .engine-box,
+  .player-box {
+    font-size: 1rem;
+    min-width: unset;
+    width: 90%;
+  }
+
+  .engine-box .score,
+  .player-box .score {
+    font-size: 1.5rem;
+  }
+
+  .controls {
+    max-width: 100%;
+    padding: 0 1rem;
+  }
 }
