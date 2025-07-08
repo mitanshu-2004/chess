@@ -1,16 +1,15 @@
-// Updated Chessboard.jsx with Abort working as loss, winner shown properly, move lock after game over, and scoring implemented
 import React, { useState, useEffect } from "react";
 import { Chess } from "chess.js";
 import Timer from "./Timer";
 import StatusBar from "./StatusBar";
 import MoveHistory from "./MoveHistory";
 import ChessSquare from "./ChessSquare";
+import { getBestMoveFromStockfish, initEngine } from "./engine";
 import "./Chessboard.css";
 
 const squareName = (row, col) => "abcdefgh"[col] + (8 - row);
 
 const Chessboard = () => {
-  const [initialTime, setInitialTime] = useState(null);
   const [game, setGame] = useState(new Chess());
   const [selected, setSelected] = useState(null);
   const [legalMoves, setLegalMoves] = useState([]);
@@ -18,6 +17,7 @@ const Chessboard = () => {
   const [moveHistory, setMoveHistory] = useState([]);
   const [whiteTime, setWhiteTime] = useState(0);
   const [blackTime, setBlackTime] = useState(0);
+  const [initialTime, setInitialTime] = useState(null);
   const [currentTurn, setCurrentTurn] = useState("w");
   const [gameOver, setGameOver] = useState(false);
   const [winner, setWinner] = useState(null);
@@ -28,46 +28,56 @@ const Chessboard = () => {
   const [engineScore, setEngineScore] = useState(0);
   const [wasAborted, setWasAborted] = useState(false);
 
-  const board = game.board();
+  useEffect(() => {
+    initEngine();
+  }, []);
+
   const inCheck = game.inCheck();
-  const isGameOver = gameOver;
-  const displayBoard = playAs === "w" ? board : [...board].reverse();
-  const AbortButton = gameStarted && !isGameOver;
+  const displayBoard = playAs === "w" ? game.board() : [...game.board()].reverse();
 
   useEffect(() => {
-    if (!gameStarted || isGameOver) return;
+    if (!gameStarted || gameOver) return;
+
     const interval = setInterval(() => {
-      if (currentTurn === "w") {
-        setWhiteTime((t) => {
-          if (t <= 1) {
-            setGameOver(true);
-            setWinner("Endgame Engine (Black wins by timeout)");
-            setEngineScore((score) => score + 1);
+      const isPlayersTurn = currentTurn === playAs;
+
+      const updateTime = (setTime, timeoutWinner, winHandler) => {
+        setTime((prevTime) => {
+          if (prevTime <= 1) {
+            clearInterval(interval);
+            if (!gameOver) {
+              setGameOver(true);
+              setWinner(timeoutWinner);
+              winHandler((score) => score + 1);
+            }
             return 0;
           }
-          return t - 1;
+          return prevTime - 1;
         });
+      };
+
+      if (isPlayersTurn) {
+        playAs === "w"
+          ? updateTime(setWhiteTime, "Engine (You lost on time)", setEngineScore)
+          : updateTime(setBlackTime, "Engine (You lost on time)", setEngineScore);
       } else {
-        setBlackTime((t) => {
-          if (t <= 1) {
-            setGameOver(true);
-            setWinner("You (White wins by timeout)");
-            setPlayerScore((score) => score + 1);
-            return 0;
-          }
-          return t - 1;
-        });
+        playAs === "w"
+          ? updateTime(setBlackTime, "You (Engine lost on time)", setPlayerScore)
+          : updateTime(setWhiteTime, "You (Engine lost on time)", setPlayerScore);
       }
     }, 1000);
+
     return () => clearInterval(interval);
-  }, [currentTurn, isGameOver, gameStarted]);
+  }, [currentTurn, gameOver, gameStarted, playAs]);
 
   const startGameWithTime = (minutes) => {
     const seconds = minutes * 60;
+    const newGame = new Chess();
+
     setInitialTime(seconds);
     setWhiteTime(seconds);
     setBlackTime(seconds);
-    setGame(new Chess());
+    setGame(newGame);
     setMoveHistory([]);
     setSelected(null);
     setLegalMoves([]);
@@ -77,10 +87,49 @@ const Chessboard = () => {
     setWinner(null);
     setGameStarted(true);
     setWasAborted(false);
+
+    if (playAs === "b") {
+      setTimeout(() => makeComputerMove(newGame), 500);
+    }
+  };
+
+  const makeComputerMove = (currentGame = game) => {
+    const fen = currentGame.fen();
+
+    getBestMoveFromStockfish(fen, (uciMove) => {
+      if (!uciMove) {
+        setGameOver(true);
+        setWinner("Draw or Error");
+        return;
+      }
+
+      const move = currentGame.move({
+        from: uciMove.slice(0, 2),
+        to: uciMove.slice(2, 4),
+        promotion: "q",
+      });
+
+      if (move) {
+        const newGame = new Chess(currentGame.fen());
+        setGame(newGame);
+        setMoveHistory((prev) => [...prev, move.san]);
+        setCurrentTurn(newGame.turn());
+
+        if (newGame.isGameOver()) {
+          const result = newGame.isCheckmate()
+            ? newGame.turn() === playAs ? "Engine" : "You"
+            : "Draw";
+          setGameOver(true);
+          setWinner(result);
+          if (result === "You") setPlayerScore((s) => s + 1);
+          else if (result === "Engine") setEngineScore((s) => s + 1);
+        }
+      }
+    });
   };
 
   const handleClick = (row, col) => {
-    if (!gameStarted || gameOver) return;
+    if (!gameStarted || gameOver || game.turn() !== playAs) return;
 
     const trueRow = playAs === "w" ? row : 7 - row;
     const square = squareName(trueRow, col);
@@ -95,42 +144,27 @@ const Chessboard = () => {
     }
 
     if (selected) {
-      if (selected === square) {
-        setSelected(null);
-        setLegalMoves([]);
-        setCaptureTargets([]);
-        return;
-      }
-
-      const possibleMoves = game.moves({ verbose: true });
-      const isPromotion = possibleMoves.some(
-        (m) => m.from === selected && m.to === square && m.promotion
-      );
-
-      const move = game.move({
-        from: selected,
-        to: square,
-        promotion: isPromotion ? "q" : undefined
-      });
+      const move = game.move({ from: selected, to: square, promotion: "q" });
 
       if (move) {
-        setGame(new Chess(game.fen()));
+        const newGame = new Chess(game.fen());
+        setGame(newGame);
         setMoveHistory((prev) => [...prev, move.san]);
         setSelected(null);
         setLegalMoves([]);
         setCaptureTargets([]);
-        setCurrentTurn(game.turn());
+        setCurrentTurn(newGame.turn());
 
-        if (game.isGameOver()) {
-          setGameOver(true);
-          const result = game.isCheckmate()
-            ? game.turn() === "w"
-              ? "Endgame Engine (Black wins by checkmate)"
-              : "You (White wins by checkmate)"
+        if (newGame.isGameOver()) {
+          const result = newGame.isCheckmate()
+            ? newGame.turn() === playAs ? "Engine" : "You"
             : "Draw";
+          setGameOver(true);
           setWinner(result);
-          if (result.includes("You")) setPlayerScore((score) => score + 1);
-          else if (result.includes("Endgame Engine")) setEngineScore((score) => score + 1);
+          if (result === "You") setPlayerScore((s) => s + 1);
+          else if (result === "Engine") setEngineScore((s) => s + 1);
+        } else if (newGame.turn() !== playAs) {
+          setTimeout(() => makeComputerMove(newGame), 500);
         }
       } else {
         setSelected(null);
@@ -159,49 +193,51 @@ const Chessboard = () => {
   const abortGame = () => {
     setWasAborted(true);
     setGameOver(true);
+    setWinner("Engine");
+    setEngineScore((s) => s + 1);
+  };
 
-    const opponentWins =
-      playAs === "w"
-        ? "Endgame Engine (Black wins by abort)"
-        : "Endgame Engine (White wins by abort)"; // Corrected for black player
+  const renderSquare = (pieceObj, row, col) => {
+    const trueRow = playAs === "w" ? row : 7 - row;
+    const square = squareName(trueRow, col);
+    const isDark = (trueRow + col) % 2 === 1;
+    const isSelected = selected === square;
+    const isCapture = captureTargets.includes(square);
+    const isLegal = legalMoves.includes(square);
+    const isInCheck =
+      inCheck && pieceObj?.type === "k" && pieceObj?.color === game.turn();
 
-    setWinner(opponentWins);
-    setEngineScore((score) => score + 1); // Always engine wins on abort
+    return (
+      <ChessSquare
+        key={square}
+        pieceObj={pieceObj}
+        square={square}
+        isDark={isDark}
+        isSelected={isSelected}
+        isCapture={isCapture}
+        isLegal={isLegal}
+        isInCheck={isInCheck}
+        onClick={() => handleClick(row, col)}
+      />
+    );
   };
 
   return (
     <div className="wrapper">
       <div className="board-section">
-        <Timer label={`Endgame Engine (${engineScore})`} time={blackTime} />
+        <Timer
+          label={`Engine (${engineScore})`}
+          time={playAs === "w" ? blackTime : whiteTime}
+        />
         <div className="board-container">
-          {displayBoard.flat().map((pieceObj, i) => {
-            const row = Math.floor(i / 8);
-            const col = i % 8;
-            const trueRow = playAs === "w" ? row : 7 - row;
-            const square = squareName(trueRow, col);
-            const isDark = (trueRow + col) % 2 === 1;
-            const isSelected = selected === square;
-            const isCapture = captureTargets.includes(square);
-            const isLegal = legalMoves.includes(square);
-            const isInCheck =
-              inCheck && pieceObj?.type === "k" && pieceObj?.color === game.turn();
-
-            return (
-              <ChessSquare
-                key={square}
-                pieceObj={pieceObj}
-                square={square}
-                isDark={isDark}
-                isSelected={isSelected}
-                isCapture={isCapture}
-                isLegal={isLegal}
-                isInCheck={isInCheck}
-                onClick={() => handleClick(row, col)}
-              />
-            );
-          })}
+          {displayBoard.flat().map((pieceObj, i) =>
+            renderSquare(pieceObj, Math.floor(i / 8), i % 8)
+          )}
         </div>
-        <Timer label={`You (${playerScore})`} time={whiteTime} />
+        <Timer
+          label={`You (${playerScore})`}
+          time={playAs === "w" ? whiteTime : blackTime}
+        />
       </div>
 
       <div className="controls">
@@ -210,26 +246,57 @@ const Chessboard = () => {
 
         {!gameStarted && (
           <div className="options">
-            <button className={`time-btn ${playAs === "w" ? "selected-color" : ""}`} onClick={() => setPlayAs("w")}>White</button>
-            <button className={`time-btn ${playAs === "b" ? "selected-color" : ""}`} onClick={() => setPlayAs("b")}>Black</button>
-            <button className={`time-btn ${selectedTime === 3 ? "selected-time" : ""}`} onClick={() => setSelectedTime(3)}>3 min</button>
-            <button className={`time-btn ${selectedTime === 5 ? "selected-time" : ""}`} onClick={() => setSelectedTime(5)}>5 min</button>
-            <button className={`time-btn ${selectedTime === 10 ? "selected-time" : ""}`} onClick={() => setSelectedTime(10)}>10 min</button>
-            <button className={`time-btn ${selectedTime === 30 ? "selected-time" : ""}`} onClick={() => setSelectedTime(30)}>30 min</button>
-            <button className="start-btn" onClick={() => selectedTime && startGameWithTime(selectedTime)} disabled={!selectedTime}>Start Game</button>
+            <button
+              className={`time-btn ${playAs === "w" ? "selected-color" : ""}`}
+              onClick={() => setPlayAs("w")}
+            >
+              White
+            </button>
+            <button
+              className={`time-btn ${playAs === "b" ? "selected-color" : ""}`}
+              onClick={() => setPlayAs("b")}
+            >
+              Black
+            </button>
+            {[1, 3, 5, 10].map((min) => (
+              <button
+                key={min}
+                className={`time-btn ${
+                  selectedTime === min ? "selected-time" : ""
+                }`}
+                onClick={() => setSelectedTime(min)}
+              >
+                {min} min
+              </button>
+            ))}
+            <button
+              className="start-btn"
+              onClick={() => selectedTime && startGameWithTime(selectedTime)}
+              disabled={!selectedTime}
+            >
+              Start Game
+            </button>
           </div>
         )}
 
-        {isGameOver && (
-          <button className="time-btn" onClick={resetGame}>Play Again</button>
+        {gameOver && (
+          <>
+            <button className="time-btn" onClick={resetGame}>
+              Play Again
+            </button>
+            <StatusBar
+              isGameOver={gameOver}
+              abort={wasAborted}
+              game={game}
+              winner={winner}
+            />
+          </>
         )}
 
-        {AbortButton && (
-          <button className="time-btn" onClick={abortGame}>Abort</button>
-        )}
-
-        {isGameOver && (
-          <StatusBar isGameOver={isGameOver} abort={wasAborted} game={game} winner={winner} />
+        {gameStarted && !gameOver && (
+          <button className="time-btn" onClick={abortGame}>
+            Abort
+          </button>
         )}
       </div>
     </div>

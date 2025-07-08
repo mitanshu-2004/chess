@@ -18,6 +18,62 @@ html, body {
   overflow: hidden;      /* Prevent scrolling */
   flex-wrap: wrap;
 }
+/* Engine and Player Scores wrapper */
+.player-engine-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 3rem;
+  margin-bottom: 1rem;
+  user-select: none;
+}
+
+/* Engine and Player boxes */
+.engine-box,
+.player-box {
+  background-color: #8d6e63;
+  color: white;
+  padding: 0.6rem 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+  text-align: center;
+  min-width: 100px;
+  font-weight: 700;
+  font-size: 1.2rem;
+  cursor: default;
+  transition: background-color 0.3s ease;
+}
+
+.engine-box:hover,
+.player-box:hover {
+  background-color: #6d4c41;
+}
+
+.engine-box .label,
+.player-box .label {
+  font-size: 1rem;
+  margin-bottom: 0.2rem;
+  opacity: 0.85;
+}
+
+.engine-box .score,
+.player-box .score {
+  font-size: 2rem;
+  font-weight: 900;
+  letter-spacing: 1.5px;
+  margin-top: 0;
+}
+
+/* Player time shown below the scores */
+.player-time {
+  text-align: center;
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: #4e342e;
+  margin-bottom: 1rem;
+  user-select: none;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
 
 
 .status-bar {
@@ -91,6 +147,7 @@ html, body {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   grid-template-rows: repeat(3, 1fr);
+  padding-top: 4rem;
   gap: 10px;
   width: 100%;
   max-width: 400px;
@@ -203,10 +260,18 @@ html, body {
   border-radius: 4px;
   box-sizing: border-box;
 }
-
+.move-history-layout {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  padding-top: 2rem;
+  max-width: 400px;
+  margin-top: 1rem;
+} 
 .move-history {
-  min-height: 300px;
-  max-height: 300px;
+  min-height: 400px;
+  max-height: 600px;
   overflow-y: auto;
   background-color: #fcf8f3; /* soft parchment tone */
   padding: 16px 20px;
