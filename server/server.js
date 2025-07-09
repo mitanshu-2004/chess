@@ -1,50 +1,32 @@
 const express = require("express");
 const cors = require("cors");
-const { spawn } = require("child_process");
-const path = require("path");
+const stockfish = require("stockfish"); // ✅ Use stockfish npm package
 
 const app = express();
-const port = 3001;
+const port = process.env.PORT || 3001;
 
 app.use(cors());
 app.use(express.json());
 
 function getBestMove(fen, callback) {
-  const stockfishPath = path.join(__dirname, "stockfish.exe");
-  const engine = spawn(stockfishPath);
-
-  console.log("Stockfish engine started");
-
+  const engine = stockfish(); // ✅ create engine instance
   let bestMove = null;
 
-  engine.stdout.on("data", (data) => {
-    const lines = data.toString().split("\n");
-    for (const line of lines) {
-      if (line.startsWith("bestmove")) {
-        bestMove = line.split(" ")[1];
-        console.log("Stockfish bestmove found:", bestMove);
-        callback(bestMove);
-        engine.kill();
-      }
+  engine.onmessage = function (line) {
+    if (typeof line === "object") line = line.data;
+    console.log("Stockfish:", line);
+
+    if (line.startsWith("bestmove")) {
+      bestMove = line.split(" ")[1];
+      callback(bestMove);
     }
-  });
+  };
 
-  engine.stderr.on("data", (data) => {
-    console.error("Stockfish error:", data.toString());
-  });
-
-  engine.on("close", (code) => {
-    console.log(`Stockfish process closed with code ${code}`);
-    if (!bestMove) {
-      callback(null);
-    }
-  });
-
-  // Send commands to Stockfish
-  engine.stdin.write(`uci\n`);
-  engine.stdin.write(`isready\n`);
-  engine.stdin.write(`position fen ${fen}\n`);
-  engine.stdin.write(`go depth 15\n`);
+  // Initialize and send commands
+  engine.postMessage("uci");
+  engine.postMessage("isready");
+  engine.postMessage(`position fen ${fen}`);
+  engine.postMessage("go depth 15");
 }
 
 app.post("/api/bestmove", (req, res) => {
@@ -65,5 +47,5 @@ app.post("/api/bestmove", (req, res) => {
 });
 
 app.listen(port, () => {
-  console.log(`Stockfish server running at http://localhost:${port}`);
+  console.log(`♟️ Stockfish server running at http://localhost:${port}`);
 });
