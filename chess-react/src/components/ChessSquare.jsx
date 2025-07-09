@@ -1,33 +1,42 @@
 import React from "react";
-
-const pieceSymbols = {
-  p: "♟", r: "♜", n: "♞", b: "♝", q: "♛", k: "♚",
-  P: "♙", R: "♖", N: "♘", B: "♗", Q: "♕", K: "♔"
-};
+import "./Chessboard.css";
 
 const ChessSquare = ({
-  pieceObj, square, isDark, isSelected,
-  isInCheck, isLegal, isCapture, onClick
+  square,
+  pieceObj,
+  isDark,
+  isSelected,
+  isCapture,
+  isLegal,
+  isInCheck,
+  onClick,
+  isLastMove
 }) => {
-  const squareClasses = [
+  const classes = [
     "square",
     isDark ? "dark" : "light",
-    isSelected && "selected",
-    isInCheck && "in-check",
-  ].filter(Boolean).join(" ");
+    isSelected ? "selected" : "",
+    isInCheck ? "in-check" : "",
+    isLastMove ? "last-move" : ""
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const pieceImg = pieceObj
+    ? `https://chessboardjs.com/img/chesspieces/wikipedia/${pieceObj.color}${pieceObj.type.toUpperCase()}.png`
+    : null;
 
   return (
-    <div className={squareClasses} onClick={onClick}>
-      {pieceObj
-        ? pieceSymbols[
-            pieceObj.color === "w"
-              ? pieceObj.type.toUpperCase()
-              : pieceObj.type
-          ]
-        : "\u00A0"}
-
-      {isLegal && !isCapture && <div className="dot" />}
+    <div className={classes} onClick={onClick}>
+      {isLegal && <div className="dot" />}
       {isCapture && <div className="capture-ring" />}
+      {pieceImg && (
+        <img
+          src={pieceImg}
+          alt={`${pieceObj.color}${pieceObj.type}`}
+          className="piece"
+        />
+      )}
     </div>
   );
 };

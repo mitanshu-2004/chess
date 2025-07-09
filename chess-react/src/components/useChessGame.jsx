@@ -1,4 +1,3 @@
-// src/components/useChessGame.js
 import { useState, useEffect, useRef } from "react";
 import { Chess } from "chess.js";
 import { getBestMoveFromStockfish, initEngine } from "./engine";
@@ -23,10 +22,12 @@ const useChessGame = () => {
   const [playerScore, setPlayerScore] = useState(0);
   const [engineScore, setEngineScore] = useState(0);
   const [wasAborted, setWasAborted] = useState(false);
-  const [ifTimeout, setIfTimeout] = useState(false);
+  const [ifTimeout, setifTimeout] = useState(false);
+  const [lastMoveSquares, setLastMoveSquares] = useState([]);
 
   const intervalRef = useRef(null);
   const gameEndedRef = useRef(false);
+  const scoreCountedRef = useRef(false); // ✅ Added
 
   useEffect(() => {
     initEngine();
@@ -48,9 +49,13 @@ const useChessGame = () => {
             if (!gameEndedRef.current) {
               gameEndedRef.current = true;
               setGameOver(true);
-              setIfTimeout(true);
+              setifTimeout(true);
               setWinner(timeoutWinner);
-              winHandler((score) => score + 1);
+
+              if (!scoreCountedRef.current) {
+                winHandler((score) => score + 1);
+                scoreCountedRef.current = true;
+              }
             }
             return 0;
           }
@@ -89,8 +94,10 @@ const useChessGame = () => {
     setWinner(null);
     setGameStarted(true);
     setWasAborted(false);
-    setIfTimeout(false);
+    setifTimeout(false);
+    setLastMoveSquares([]);
     gameEndedRef.current = false;
+    scoreCountedRef.current = false;
 
     if (playAs === "b") {
       setTimeout(() => makeComputerMove(newGame), 500);
@@ -123,16 +130,22 @@ const useChessGame = () => {
         setGame(newGame);
         setMoveHistory((prev) => [...prev, move.san]);
         setCurrentTurn(newGame.turn());
+        setLastMoveSquares([move.from, move.to]);
 
         if (newGame.isGameOver() && !gameEndedRef.current && !ifTimeout) {
           gameEndedRef.current = true;
+          setGameOver(true);
+
           const result = newGame.isCheckmate()
             ? newGame.turn() === playAs ? "Engine" : "You"
             : "Draw";
-          setGameOver(true);
           setWinner(result);
-          if (result === "You") setPlayerScore((s) => s + 1);
-          else if (result === "Engine") setEngineScore((s) => s + 1);
+
+          if (!scoreCountedRef.current) {
+            if (result === "You") setPlayerScore((s) => s + 1);
+            else if (result === "Engine") setEngineScore((s) => s + 1);
+            scoreCountedRef.current = true;
+          }
         }
       }
     });
@@ -164,16 +177,22 @@ const useChessGame = () => {
         setLegalMoves([]);
         setCaptureTargets([]);
         setCurrentTurn(newGame.turn());
+        setLastMoveSquares([move.from, move.to]);
 
         if (newGame.isGameOver() && !gameEndedRef.current && !ifTimeout) {
           gameEndedRef.current = true;
+          setGameOver(true);
+
           const result = newGame.isCheckmate()
             ? newGame.turn() === playAs ? "Engine" : "You"
             : "Draw";
-          setGameOver(true);
           setWinner(result);
-          if (result === "You") setPlayerScore((s) => s + 1);
-          else if (result === "Engine") setEngineScore((s) => s + 1);
+
+          if (!scoreCountedRef.current) {
+            if (result === "You") setPlayerScore((s) => s + 1);
+            else if (result === "Engine") setEngineScore((s) => s + 1);
+            scoreCountedRef.current = true;
+          }
         } else if (newGame.turn() !== playAs) {
           setTimeout(() => makeComputerMove(newGame), 500);
         }
@@ -199,8 +218,10 @@ const useChessGame = () => {
     setGameStarted(false);
     setSelectedTime(null);
     setWasAborted(false);
-    setIfTimeout(false);
+    setifTimeout(false);
+    setLastMoveSquares([]);
     gameEndedRef.current = false;
+    scoreCountedRef.current = false;
   };
 
   const abortGame = () => {
@@ -209,7 +230,11 @@ const useChessGame = () => {
       setWasAborted(true);
       setGameOver(true);
       setWinner("Engine");
-      setEngineScore((s) => s + 1);
+
+      if (!scoreCountedRef.current) {
+        setEngineScore((s) => s + 1);
+        scoreCountedRef.current = true;
+      }
     }
   };
 
@@ -233,6 +258,7 @@ const useChessGame = () => {
     ifTimeout,
     inCheck,
     displayBoard,
+    lastMoveSquares,
     setPlayAs,
     setSelectedTime,
     startGameWithTime,

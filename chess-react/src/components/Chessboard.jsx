@@ -1,4 +1,3 @@
-// src/components/Chessboard.jsx
 import React from "react";
 import Timer from "./Timer";
 import StatusBar from "./StatusBar";
@@ -29,6 +28,7 @@ const Chessboard = () => {
     moveHistory,
     wasAborted,
     ifTimeout,
+    lastMoveSquares, // ⬅️ Added for last move
     handleClick,
     resetGame,
     abortGame,
@@ -46,6 +46,7 @@ const Chessboard = () => {
     const isLegal = legalMoves.includes(square);
     const isInCheck =
       inCheck && pieceObj?.type === "k" && pieceObj?.color === game.turn();
+    const isLastMove = lastMoveSquares.includes(square); // ⬅️ Highlight last move
 
     return (
       <ChessSquare
@@ -57,6 +58,7 @@ const Chessboard = () => {
         isCapture={isCapture}
         isLegal={isLegal}
         isInCheck={isInCheck}
+        isLastMove={isLastMove} // ⬅️ Pass it down
         onClick={() => handleClick(row, col)}
       />
     );
@@ -98,10 +100,12 @@ const Chessboard = () => {
             >
               Black
             </button>
-            {[1, 3, 5, 0.1].map((min) => (
+            {[1, 3, 5, 10].map((min) => (
               <button
                 key={min}
-                className={`time-btn ${selectedTime === min ? "selected-time" : ""}`}
+                className={`time-btn ${
+                  selectedTime === min ? "selected-time" : ""
+                }`}
                 onClick={() => setSelectedTime(min)}
               >
                 {min} min
