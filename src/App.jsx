@@ -1,3 +1,4 @@
+// App.jsx
 import React from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Homepage from "./pages/Home";
@@ -11,11 +12,9 @@ const App = () => {
       <Routes>
         <Route path="/" element={<Homepage />} />
         <Route path="/bot" element={<Chessboard mode="bot" playerColor="w" />} />
-
         <Route path="/multiplayer" element={<MultiplayerRoom />} />
-
-        <Route path="/multiplayer/:roomId" element={<MultiplayerGame />} />
-
+        <Route path="/multiplayer/:roomId" element={<MultiplayerRoom />} />
+        <Route path="/multiplayer-game/:roomId" element={<MultiplayerGame />} />
       </Routes>
     </BrowserRouter>
   );

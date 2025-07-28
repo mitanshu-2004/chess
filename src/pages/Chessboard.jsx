@@ -1,14 +1,21 @@
+// Chessboard.jsx (Updated to Use Username from URL)
 import React from "react";
+import { useSearchParams } from "react-router-dom";
 import Timer from "../components/Timer";
 import StatusBar from "../components/StatusBar";
 import MoveHistory from "../components/MoveHistory";
 import ChessSquare from "../components/ChessSquare";
 import useChessGame from "../hooks/useChessGame";
 import "../styles/Chessboard.css";
+import TimeBar from "../components/TimeBar";
+import ScoreBox from "../components/ScoreBox";
 
 const squareName = (row, col) => "abcdefgh"[col] + (8 - row);
 
 const Chessboard = () => {
+  const [searchParams] = useSearchParams();
+  const username = searchParams.get("username") || "You";
+
   const {
     game,
     displayBoard: board,
@@ -28,13 +35,14 @@ const Chessboard = () => {
     moveHistory,
     wasAborted,
     ifTimeout,
-    lastMoveSquares, // ⬅️ Added for last move
+    lastMoveSquares,
     handleClick,
     resetGame,
     abortGame,
     setPlayAs,
     setSelectedTime,
     startGameWithTime,
+    initialTime,
   } = useChessGame();
 
   const renderSquare = (pieceObj, row, col) => {
@@ -46,7 +54,7 @@ const Chessboard = () => {
     const isLegal = legalMoves.includes(square);
     const isInCheck =
       inCheck && pieceObj?.type === "k" && pieceObj?.color === game.turn();
-    const isLastMove = lastMoveSquares.includes(square); // ⬅️ Highlight last move
+    const isLastMove = lastMoveSquares.includes(square);
 
     return (
       <ChessSquare
@@ -58,7 +66,7 @@ const Chessboard = () => {
         isCapture={isCapture}
         isLegal={isLegal}
         isInCheck={isInCheck}
-        isLastMove={isLastMove} // ⬅️ Pass it down
+        isLastMove={isLastMove}
         onClick={() => handleClick(row, col)}
       />
     );
@@ -67,24 +75,23 @@ const Chessboard = () => {
   return (
     <div className="wrapper">
       <div className="board-section">
-        <Timer
-          label={`Engine (${engineScore})`}
-          time={playAs === "w" ? blackTime : whiteTime}
-        />
+        <ScoreBox label="Engine" value={engineScore} />
         <div className="board-container">
           {board.flat().map((pieceObj, i) =>
             renderSquare(pieceObj, Math.floor(i / 8), i % 8)
           )}
         </div>
-        <Timer
-          label={`You (${playerScore})`}
-          time={playAs === "w" ? whiteTime : blackTime}
-        />
+        <ScoreBox label={username} value={playerScore} />
       </div>
 
       <div className="controls">
         <h3>Move History</h3>
         <MoveHistory moveHistory={moveHistory} />
+        <TimeBar
+          label="Your Time"
+          time={playAs === "w" ? whiteTime : blackTime}
+          initialTime={initialTime}
+        />
 
         {!gameStarted && (
           <div className="options">

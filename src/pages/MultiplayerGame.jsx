@@ -1,11 +1,14 @@
-// src/pages/MultiplayerGame.jsx
 import React, { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
+import { doc, onSnapshot } from "firebase/firestore";
+import { firestore } from "../utils/firebase";
+
 import useMultiplayerGame from "../hooks/useMultiplayerGame";
-import StatusBar from "../components/StatusBar";
-import Timer from "../components/Timer";
-import MoveHistory from "../components/MoveHistory";
 import ChessSquare from "../components/ChessSquare";
+import MoveHistory from "../components/MoveHistory";
+import Timer from "../components/Timer";
+import ScoreBox from "../components/ScoreBox";
+import StatusBar from "../components/StatusBar";
 import "../styles/Chessboard.css";
 
 const squareName = (row, col) => "abcdefgh"[col] + (8 - row);
@@ -13,174 +16,147 @@ const squareName = (row, col) => "abcdefgh"[col] + (8 - row);
 const MultiplayerGame = () => {
   const { roomId } = useParams();
   const [searchParams] = useSearchParams();
-  const colorParam = searchParams.has("w") ? "w" : searchParams.has("b") ? "b" : null;
-  const playerColor = colorParam;
-  const selectedTime = parseInt(searchParams.get("time")) || 3;
+  const playerColor = searchParams.get("color");
+  const selectedTime = parseInt(searchParams.get("time"), 10) || 3;
+  const username = searchParams.get("username") || "You";
 
-  if (!roomId || !playerColor) {
-    return <div>Error: Invalid game link or color not specified.</div>;
+  if (!roomId) {
+    return <div style={{ color: "red", textAlign: "center" }}>❌ Missing game ID in URL.</div>;
   }
+
+  if (playerColor !== "w" && playerColor !== "b") {
+    return <div style={{ color: "red", textAlign: "center" }}>❌ Invalid or missing player color in link.</div>;
+  }
+
+  const [opponent, setOpponent] = useState(null);
+  const [roomError, setRoomError] = useState(false);
+  const [playersReady, setPlayersReady] = useState(false);
+  const roomRef = doc(firestore, "rooms", roomId);
 
   const {
     game,
-    makeMove,
-    moves = [],
-    turn,
-    status,
-    whiteTime,
-    blackTime,
-    setGameOver,
+    board,
+    selected,
+    legalMoves,
+    captureTargets,
+    inCheck,
+    playerScore,
+    opponentScore,
     gameOver,
     winner,
-    setWinner,
-    players,
+    gameStarted,
+    whiteTime,
+    blackTime,
+    moveHistory,
+    lastMoveSquares,
+    handleClick,
     resetGame,
-    lastMove,
-    lastMoveTimestamp,
-    resignGame,
-    requestRematch,
-    clearRematchRequests,
-    rematch,
-  } = useMultiplayerGame(roomId, playerColor, selectedTime);
-
-  const [selected, setSelected] = useState({ from: null, to: null });
-  const [legalMoves, setLegalMoves] = useState([]);
-  const [localWhiteTime, setLocalWhiteTime] = useState(whiteTime);
-  const [localBlackTime, setLocalBlackTime] = useState(blackTime);
-
-  const isPlayerTurn = turn === playerColor && status === "active" && !gameOver;
+    abortGame,
+    startGame,
+    wasAborted,
+    ifTimeout,
+  } = useMultiplayerGame(roomId, playerColor, username, selectedTime);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      const now = Date.now();
-      const ts = lastMoveTimestamp || now;
-      const elapsed = Math.floor((now - ts) / 1000);
-
-      const white = typeof whiteTime === "number" ? whiteTime : selectedTime * 60;
-      const black = typeof blackTime === "number" ? blackTime : selectedTime * 60;
-
-      setLocalWhiteTime(turn === "w" ? Math.max(0, white - elapsed) : white);
-      setLocalBlackTime(turn === "b" ? Math.max(0, black - elapsed) : black);
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [lastMoveTimestamp, whiteTime, blackTime, turn]);
-
-  useEffect(() => {
-    if (rematch?.w && rematch?.b) {
-      clearRematchRequests();
-      resetGame();
-    }
-  }, [rematch]);
-
-  const handleSquareClick = (square) => {
-    if (!isPlayerTurn) return;
-    const piece = game.get(square);
-
-    if (!selected.from) {
-      if (piece && piece.color === playerColor) {
-        setSelected({ from: square });
-        const moves = game.moves({ square, verbose: true });
-        setLegalMoves(moves.map((m) => m.to));
+    const unsub = onSnapshot(roomRef, (snapshot) => {
+      const data = snapshot.data();
+      if (!data) {
+        setRoomError(true);
+        return;
       }
-    } else {
-      if (legalMoves.includes(square)) {
-        makeMove({ from: selected.from, to: square, promotion: "q" });
-      }
-      setSelected({ from: null });
-      setLegalMoves([]);
-    }
-  };
+      const oppKey = playerColor === "w" ? "blackPlayer" : "whitePlayer";
+      const oppName = data[oppKey];
+      if (oppName) setOpponent(oppName);
+      if (data.whitePlayer && data.blackPlayer) setPlayersReady(true);
+    });
+    return () => unsub();
+  }, [playerColor, roomRef]);
 
-  const handleRematch = () => {
-    requestRematch(playerColor);
-  };
+  const renderSquare = (pieceObj, row, col) => {
+    const trueRow = playerColor === "w" ? row : 7 - row;
+    const trueCol = playerColor === "w" ? col : 7 - col;
 
-  const handleResign = () => {
-    resignGame(playerColor);
-  };
+    const square = squareName(trueRow, trueCol);
+    const isDark = (trueRow + trueCol) % 2 === 1;
+    const isSelected = selected === square;
+    const isCapture = captureTargets.includes(square);
+    const isLegal = legalMoves.includes(square);
+    const isInCheck =
+      inCheck && pieceObj?.type === "k" && pieceObj?.color === game.turn();
+    const isLastMove = lastMoveSquares.includes(square);
 
-  const renderBoard = () => {
     return (
-      <div className="board-container">
-        {Array.from({ length: 8 }).flatMap((_, row) =>
-          Array.from({ length: 8 }).map((_, col) => {
-            const trueRow = playerColor === "w" ? row : 7 - row;
-            const trueCol = playerColor === "w" ? col : 7 - col;
-            const square = squareName(trueRow, trueCol);
-            const piece = game.get(square);
-            const isDark = (trueRow + trueCol) % 2 === 1;
-            const isSelected = selected.from === square;
-            const isLastMove = lastMove && (lastMove.from === square || lastMove.to === square);
-            const isLegal = legalMoves.includes(square);
-
-            return (
-              <ChessSquare
-                key={square}
-                square={square}
-                pieceObj={piece}
-                isDark={isDark}
-                isSelected={isSelected}
-                isLastMove={isLastMove}
-                isLegal={isLegal}
-                onClick={() => handleSquareClick(square)}
-              />
-            );
-          })
-        )}
-      </div>
-    );
-  };
-
-  const renderStatusBar = () => {
-    if (status === "waiting") {
-      return <div className="status-bar">⏳ Waiting for opponent to join...</div>;
-    }
-    return (
-      <StatusBar
-        isGameOver={gameOver}
-        winner={winner}
-        turn={turn}
-        isPlayerTurn={isPlayerTurn}
+      <ChessSquare
+        key={square}
+        pieceObj={pieceObj}
+        square={square}
+        isDark={isDark}
+        isSelected={isSelected}
+        isCapture={isCapture}
+        isLegal={isLegal}
+        isInCheck={isInCheck}
+        isLastMove={isLastMove}
+        onClick={() => handleClick(row, col)}
       />
     );
   };
 
+  if (roomError) {
+    return <div style={{ color: "red", textAlign: "center" }}>❌ Room not found or deleted.</div>;
+  }
+
   return (
     <div className="wrapper">
       <div className="board-section">
-        {playerColor === "w" ? (
-          <>
-            <Timer label="Black" time={localBlackTime} />
-            {renderBoard()}
-            <Timer label="White" time={localWhiteTime} />
-          </>
-        ) : (
-          <>
-            <Timer label="White" time={localWhiteTime} />
-            {renderBoard()}
-            <Timer label="Black" time={localBlackTime} />
-          </>
-        )}
+        <Timer
+          label={playerColor === "w" ? username : opponent || "Waiting..."}
+          time={playerColor === "w" ? whiteTime : blackTime}
+        />
+        <div className="board-container">
+          {board?.map((rowArr, rowIdx) =>
+            rowArr.map((pieceObj, colIdx) =>
+              renderSquare(pieceObj, rowIdx, colIdx)
+            )
+          )}
+        </div>
+        <Timer
+          label={playerColor === "b" ? username : opponent || "Waiting..."}
+          time={playerColor === "b" ? whiteTime : blackTime}
+        />
       </div>
 
       <div className="controls">
         <h3>Move History</h3>
-        <MoveHistory moveHistory={moves} />
-        {renderStatusBar()}
+        <MoveHistory moveHistory={moveHistory} />
 
-        <div style={{ marginTop: "1rem" }}>
-          {!gameOver && (
-            <button onClick={handleResign} className="start-btn">
-              🏳️ Resign
-            </button>
-          )}
-          {gameOver && (
-            <button onClick={handleRematch} className="start-btn">
-              🔁 {rematch[playerColor] ? "Waiting for Opponent..." : "Request Rematch"}
-            </button>
-          )}
-        </div>
+        {!gameStarted && playersReady && (
+          <button className="start-btn" onClick={startGame}>
+            Start Game
+          </button>
+        )}
+
+        {!playersReady && (
+          <div className="waiting-msg">Waiting for opponent to join...</div>
+        )}
+
+        {gameOver && (
+          <>
+            <button className="time-btn" onClick={resetGame}>Play Again</button>
+            <StatusBar
+              isGameOver={gameOver}
+              abort={wasAborted}
+              ifTimeout={ifTimeout}
+              game={game}
+              winner={winner}
+            />
+          </>
+        )}
+
+        {gameStarted && !gameOver && (
+          <button className="time-btn" onClick={abortGame}>
+            Abort
+          </button>
+        )}
       </div>
     </div>
   );

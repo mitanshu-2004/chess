@@ -1,32 +1,43 @@
-// src/pages/Homepage.jsx
-import React from "react";
+// Homepage.jsx
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { v4 as uuidv4 } from "uuid";
 
 const Homepage = () => {
+  const [username, setUsername] = useState("");
   const navigate = useNavigate();
+
+  const handleMultiplayer = () => {
+    if (!username.trim()) {
+      alert("Please enter your name");
+      return;
+    }
+    const roomId = uuidv4().slice(0, 6); // Generate short room ID
+    navigate(`/multiplayer/${roomId}?username=${encodeURIComponent(username)}&color=w`);
+  };
 
   return (
     <div style={styles.container}>
       <h1 style={styles.title}>♟️ React Chess ♟️</h1>
-      <p style={styles.subtitle}>
-        Choose your mode and start playing chess now!
-      </p>
-
+      <input
+        type="text"
+        placeholder="Enter your name"
+        value={username}
+        onChange={(e) => setUsername(e.target.value)}
+        style={styles.input}
+      />
       <div style={styles.buttonsContainer}>
         <button
-          style={{ ...styles.button, ...styles.botButton }}
-          onClick={() => navigate("/bot")}
-          aria-label="Play against Bot"
+          style={{ ...styles.button, backgroundColor: "#4caf50" }}
+          onClick={() => navigate(`/bot?username=${username}`)}
         >
           Play vs Bot
         </button>
-
         <button
-          style={{ ...styles.button, ...styles.multiButton }}
-          onClick={() => navigate("/multiplayer/room1?w")}
-          aria-label="Play Multiplayer"
+          style={{ ...styles.button, backgroundColor: "#2196f3" }}
+          onClick={handleMultiplayer}
         >
-          Play Multiplayer
+          Create Multiplayer Game
         </button>
       </div>
     </div>
@@ -38,52 +49,31 @@ const styles = {
     minHeight: "100vh",
     display: "flex",
     flexDirection: "column",
-    justifyContent: "center",
     alignItems: "center",
-    background: "linear-gradient(135deg, #1f4037 0%, #99f2c8 100%)",
-    padding: "20px",
-    fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+    justifyContent: "center",
+    background: "#212121",
+    color: "white",
   },
-  title: {
-    fontSize: "3.5rem",
-    fontWeight: "900",
-    color: "#fff",
-    marginBottom: "0.3em",
-    textShadow: "2px 2px 5px rgba(0,0,0,0.5)",
-  },
-  subtitle: {
-    fontSize: "1.2rem",
-    color: "#e0f2f1",
-    marginBottom: "2em",
-    maxWidth: "320px",
-    textAlign: "center",
+  input: {
+    padding: "10px",
+    marginBottom: "20px",
+    fontSize: "16px",
   },
   buttonsContainer: {
     display: "flex",
-    gap: "1.5rem",
-    flexWrap: "wrap",
-    justifyContent: "center",
-    width: "100%",
-    maxWidth: "400px",
+    gap: "1rem",
   },
   button: {
-    flex: "1 1 140px",
-    padding: "16px 28px",
-    fontSize: "1.2rem",
-    fontWeight: "700",
-    borderRadius: "50px",
+    padding: "14px 24px",
+    fontSize: "16px",
+    fontWeight: "bold",
+    borderRadius: "10px",
     border: "none",
     cursor: "pointer",
-    transition: "all 0.3s ease",
-    boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
   },
-  botButton: {
-    backgroundColor: "#4caf50",
-    color: "#fff",
-  },
-  multiButton: {
-    backgroundColor: "#2196f3",
-    color: "#fff",
+  title: {
+    fontSize: "3rem",
+    marginBottom: "20px",
   },
 };
 

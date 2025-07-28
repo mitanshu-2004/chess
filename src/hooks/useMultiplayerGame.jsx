@@ -1,210 +1,209 @@
 // src/hooks/useMultiplayerGame.jsx
 import { useEffect, useRef, useState } from "react";
 import { Chess } from "chess.js";
-import {
-  doc,
-  onSnapshot,
-  setDoc,
-  updateDoc,
-  getDoc,
-} from "firebase/firestore";
+import { doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { firestore } from "../utils/firebase";
-import { v4 as uuidv4 } from "uuid";
 
-const useMultiplayerGame = (roomId, playerColor, selectedTime) => {
-  const gameRef = doc(firestore, "rooms", roomId);
-  const [game, setGame] = useState(new Chess());
-  const [moves, setMoves] = useState([]);
-  const [turn, setTurn] = useState("w");
-  const [status, setStatus] = useState("waiting");
+const useMultiplayerGame = (roomId, playerColor, username, selectedTime) => {
+  const [game] = useState(new Chess());
+  const [board, setBoard] = useState(game.board());
+  const [selected, setSelected] = useState(null);
+  const [legalMoves, setLegalMoves] = useState([]);
+  const [captureTargets, setCaptureTargets] = useState([]);
+  const [lastMoveSquares, setLastMoveSquares] = useState([]);
+  const [inCheck, setInCheck] = useState(false);
+
+  const [playerScore, setPlayerScore] = useState(0);
+  const [opponentScore, setOpponentScore] = useState(0);
+
+  const [gameOver, setGameOver] = useState(false);
+  const [wasAborted, setWasAborted] = useState(false);
+  const [ifTimeout, setIfTimeout] = useState(false);
+  const [gameStarted, setGameStarted] = useState(false);
+  const [winner, setWinner] = useState(null);
+
+  const [moveHistory, setMoveHistory] = useState([]);
+
   const [whiteTime, setWhiteTime] = useState(selectedTime * 60);
   const [blackTime, setBlackTime] = useState(selectedTime * 60);
-  const [gameOver, setGameOver] = useState(false);
-  const [winner, setWinner] = useState(null);
-  const [players, setPlayers] = useState({});
-  const [lastMove, setLastMove] = useState(null);
-  const [lastMoveTimestamp, setLastMoveTimestamp] = useState(Date.now());
-  const [rematch, setRematch] = useState({});
-  const uidRef = useRef(uuidv4());
+  const intervalRef = useRef(null);
 
+  const roomRef = doc(firestore, "rooms", roomId);
+
+  // Handle remote game updates
   useEffect(() => {
-    const init = async () => {
-      const snapshot = await getDoc(gameRef);
+    const unsub = onSnapshot(roomRef, (snapshot) => {
       const data = snapshot.data();
+      if (!data || !data.gameState) return;
 
-      if (!snapshot.exists()) {
-        const initialState = {
-          fen: new Chess().fen(),
-          moves: [],
-          turn: "w",
-          status: "waiting",
-          players: { [playerColor]: uidRef.current },
-          timers: {
-            w: selectedTime * 60,
-            b: selectedTime * 60,
-          },
-          lastMoveTimestamp: Date.now(),
-          rematch: {},
-        };
-        await setDoc(gameRef, initialState);
-        setPlayers(initialState.players);
-      } else {
-        const players = data.players || {};
-        if (!players[playerColor]) {
-          players[playerColor] = uidRef.current;
-          await updateDoc(gameRef, { players });
-        }
+      game.load(data.gameState);
 
-        if (Object.keys(players).length === 2 && data.status !== "active") {
-          await updateDoc(gameRef, { status: "active" });
-        }
-      }
-    };
+      setBoard(game.board());
+      setMoveHistory(game.history({ verbose: true }));
+      setGameStarted(data.gameStarted || false);
+      setGameOver(data.gameOver || false);
+      setWasAborted(data.wasAborted || false);
+      setIfTimeout(data.ifTimeout || false);
+      setWinner(data.winner || null);
+      setLastMoveSquares(data.lastMoveSquares || []);
+      setWhiteTime(data.whiteTime || selectedTime * 60);
+      setBlackTime(data.blackTime || selectedTime * 60);
+    });
 
-    init();
-  }, [roomId, playerColor]);
+    return () => unsub();
+  }, [roomId]);
 
+  // Timer updates
   useEffect(() => {
-    const unsubscribe = onSnapshot(gameRef, (docSnap) => {
-      const data = docSnap.data();
-      if (!data) return;
+    if (!gameStarted || gameOver) {
+      clearInterval(intervalRef.current);
+      return;
+    }
 
-      const g = new Chess();
-      g.load(data.fen);
-      setGame(g);
-
-      const now = Date.now();
-      const timeSinceLastMove = Math.floor((now - (data.lastMoveTimestamp || now)) / 1000);
-
-      let white = data.timers?.w ?? selectedTime * 60;
-      let black = data.timers?.b ?? selectedTime * 60;
-
-      if (data.status === "active" && !g.isGameOver()) {
-        if (data.turn === "w") {
-          white = Math.max(0, white - timeSinceLastMove);
-        } else {
-          black = Math.max(0, black - timeSinceLastMove);
-        }
+    intervalRef.current = setInterval(() => {
+      const turn = game.turn();
+      if (turn === "w") {
+        setWhiteTime((t) => {
+          if (t <= 0) {
+            handleTimeout("b");
+            return 0;
+          }
+          return t - 1;
+        });
+      } else {
+        setBlackTime((t) => {
+          if (t <= 0) {
+            handleTimeout("w");
+            return 0;
+          }
+          return t - 1;
+        });
       }
+    }, 1000);
 
-      setMoves(data.moves || []);
-      setTurn(data.turn || "w");
-      setStatus(data.status || "waiting");
-      setPlayers(data.players || {});
-      setWhiteTime(white);
-      setBlackTime(black);
-      setLastMoveTimestamp(data.lastMoveTimestamp || now);
-      setLastMove(data.moves?.length ? data.moves[data.moves.length - 1] : null);
-      setRematch(data.rematch || {});
+    return () => clearInterval(intervalRef.current);
+  }, [gameStarted, gameOver]);
 
-      const over = g.isGameOver();
-      setGameOver(over);
-
-      if (over) {
-        if (g.isCheckmate()) {
-          setWinner(g.turn() === "w" ? "Black" : "White");
-        } else {
-          setWinner("Draw");
-        }
-      }
-
-      if (data.status === "resigned") {
-        setGameOver(true);
-        setWinner(data.winner);
-      }
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  const makeMove = async ({ from, to, promotion }) => {
-    const newGame = new Chess(game.fen());
-    const moveObj = newGame.move({ from, to, promotion });
-
-    if (!moveObj) return;
-
-    const now = Date.now();
-    const timeElapsed = Math.floor((now - lastMoveTimestamp) / 1000);
-
-    const updatedTimers = {
-      w: turn === "w" ? Math.max(0, whiteTime - timeElapsed) : whiteTime,
-      b: turn === "b" ? Math.max(0, blackTime - timeElapsed) : blackTime,
-    };
-
-    const newMoves = [
-      ...moves,
-      {
-        from,
-        to,
-        san: moveObj.san,
-        color: moveObj.color,
-      },
-    ];
-
-    await updateDoc(gameRef, {
-      fen: newGame.fen(),
-      moves: newMoves,
-      turn: newGame.turn(),
-      timers: updatedTimers,
-      lastMoveTimestamp: now,
-    });
-  };
-
-  const resetGame = async () => {
-    const newGame = new Chess();
-    await updateDoc(gameRef, {
-      fen: newGame.fen(),
-      moves: [],
-      turn: "w",
-      timers: {
-        w: selectedTime * 60,
-        b: selectedTime * 60,
-      },
-      status: "active",
-      lastMoveTimestamp: Date.now(),
-    });
-  };
-
-  const resignGame = async (color) => {
-    const winnerColor = color === "w" ? "Black" : "White";
-    await updateDoc(gameRef, {
-      status: "resigned",
+  const handleTimeout = async (winnerColor) => {
+    setGameOver(true);
+    setIfTimeout(true);
+    setWinner(winnerColor);
+    await updateDoc(roomRef, {
+      gameOver: true,
+      ifTimeout: true,
       winner: winnerColor,
     });
   };
 
-  const requestRematch = async (color) => {
-    const snapshot = await getDoc(gameRef);
-    const currentRematch = snapshot.data().rematch || {};
-    await updateDoc(gameRef, {
-      rematch: { ...currentRematch, [color]: true },
+  const handleClick = async (row, col) => {
+    if (gameOver || !gameStarted) return;
+    const square = "abcdefgh"[col] + (8 - row);
+    const piece = game.get(square);
+
+    if (!selected) {
+      if (piece && piece.color === playerColor) {
+        const moves = game.moves({ square, verbose: true });
+        setLegalMoves(moves.map((m) => m.to));
+        setCaptureTargets(
+          moves.filter((m) => m.flags.includes("c")).map((m) => m.to)
+        );
+        setSelected(square);
+      }
+      return;
+    }
+
+    if (square === selected) {
+      setSelected(null);
+      setLegalMoves([]);
+      setCaptureTargets([]);
+      return;
+    }
+
+    const move = game.move({ from: selected, to: square, promotion: "q" });
+    if (move) {
+      setBoard(game.board());
+      setMoveHistory(game.history({ verbose: true }));
+      setSelected(null);
+      setLegalMoves([]);
+      setCaptureTargets([]);
+      setLastMoveSquares([move.from, move.to]);
+      setInCheck(game.in_check());
+
+      await updateDoc(roomRef, {
+        gameState: game.fen(),
+        lastMoveSquares: [move.from, move.to],
+      });
+    }
+  };
+
+  const startGame = async () => {
+    await updateDoc(roomRef, {
+      gameStarted: true,
+      gameState: game.fen(),
+      whiteTime: selectedTime * 60,
+      blackTime: selectedTime * 60,
     });
   };
 
-  const clearRematchRequests = async () => {
-    await updateDoc(gameRef, { rematch: {} });
+  const resetGame = async () => {
+    game.reset();
+    setBoard(game.board());
+    setSelected(null);
+    setLegalMoves([]);
+    setCaptureTargets([]);
+    setInCheck(false);
+    setGameOver(false);
+    setWasAborted(false);
+    setIfTimeout(false);
+    setWinner(null);
+    setMoveHistory([]);
+    setWhiteTime(selectedTime * 60);
+    setBlackTime(selectedTime * 60);
+
+    await updateDoc(roomRef, {
+      gameStarted: false,
+      gameOver: false,
+      wasAborted: false,
+      ifTimeout: false,
+      winner: null,
+      lastMoveSquares: [],
+      gameState: game.fen(),
+      whiteTime: selectedTime * 60,
+      blackTime: selectedTime * 60,
+    });
+  };
+
+  const abortGame = async () => {
+    setWasAborted(true);
+    setGameOver(true);
+    await updateDoc(roomRef, {
+      gameOver: true,
+      wasAborted: true,
+    });
   };
 
   return {
     game,
-    makeMove,
-    moves,
-    turn,
-    status,
+    board,
+    selected,
+    legalMoves,
+    captureTargets,
+    inCheck,
+    playerScore,
+    opponentScore,
+    gameOver,
+    winner,
+    gameStarted,
     whiteTime,
     blackTime,
-    gameOver,
-    setGameOver,
-    winner,
-    setWinner,
-    players,
+    moveHistory,
+    lastMoveSquares,
+    handleClick,
     resetGame,
-    lastMove,
-    lastMoveTimestamp,
-    resignGame,
-    requestRematch,
-    clearRematchRequests,
-    rematch,
+    abortGame,
+    startGame,
+    wasAborted,
+    ifTimeout,
   };
 };
 

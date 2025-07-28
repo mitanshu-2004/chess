@@ -265,6 +265,7 @@ const useChessGame = () => {
     handleClick,
     resetGame,
     abortGame,
+    initialTime,
   };
 };
 
