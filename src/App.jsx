@@ -1,23 +1,26 @@
-// App.jsx
+// App.jsx - Updated with new multiplayer route
 import React from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Homepage from "./pages/Home";
 import Chessboard from "./pages/Chessboard";
 import MultiplayerRoom from "./pages/MultiplayerRoom";
-import MultiplayerGame from "./pages/MultiplayerGame";
+import MultiplayerGame from "./pages/MultiplayerGame"; // Old version
+import NewMultiplayerGame from "./pages/NewMultiplayerGame"; // New version
 
-const App = () => {
+function App() {
   return (
-    <BrowserRouter>
+    <Router>
       <Routes>
         <Route path="/" element={<Homepage />} />
-        <Route path="/bot" element={<Chessboard mode="bot" playerColor="w" />} />
-        <Route path="/multiplayer" element={<MultiplayerRoom />} />
+        <Route path="/bot" element={<Chessboard />} />
         <Route path="/multiplayer/:roomId" element={<MultiplayerRoom />} />
-        <Route path="/multiplayer-game/:roomId" element={<MultiplayerGame />} />
+        
+
+        {/* New improved multiplayer game route */}
+        <Route path="/play/:roomId" element={<NewMultiplayerGame />} />
       </Routes>
-    </BrowserRouter>
+    </Router>
   );
-};
+}
 
 export default App;

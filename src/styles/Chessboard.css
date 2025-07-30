@@ -24,7 +24,6 @@ html, body {
   justify-content: center;
   align-items: flex-start;
   gap: 2rem;
-  padding: 1rem;
   background-color: #f4f4f4;
   min-height: 100vh;       /* ✅ Don't force full height */
   box-sizing: border-box;
