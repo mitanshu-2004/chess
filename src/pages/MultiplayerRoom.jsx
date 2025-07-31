@@ -1,4 +1,4 @@
-// MultiplayerRoom.jsx - Enhanced Real-time Updates (Fixed)
+// MultiplayerRoom.jsx - Enhanced Real-time Updates (Fixed - No Scroll)
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate, useSearchParams, useParams } from "react-router-dom";
 import {
@@ -33,7 +33,7 @@ const MultiplayerRoom = () => {
   const unsubscribeRef = useRef(null);
   const heartbeatRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
-  const lastProcessedVersionRef = useRef(0); // Track processed version to avoid duplicate updates
+  const lastProcessedVersionRef = useRef(0);
 
   // Connection heartbeat to maintain presence
   const startHeartbeat = useCallback(() => {
@@ -53,7 +53,7 @@ const MultiplayerRoom = () => {
         console.error("Heartbeat failed:", err);
         setConnectionStatus("reconnecting");
       }
-    }, 5000); // Update every 5 seconds
+    }, 5000);
   }, [roomRef, roomData, username, isHost]);
 
   // Enhanced connection monitoring
@@ -95,7 +95,6 @@ const MultiplayerRoom = () => {
         const roomSnap = await getDoc(roomRef);
 
         if (!roomSnap.exists()) {
-          // Create new room with enhanced tracking
           await setDoc(roomRef, {
             hostPlayer: username,
             guestPlayer: null,
@@ -108,7 +107,7 @@ const MultiplayerRoom = () => {
             hostLastSeen: serverTimestamp(),
             guestLastSeen: null,
             lastActivity: serverTimestamp(),
-            version: 1 // For optimistic updates
+            version: 1
           });
           setIsHost(true);
           setLoading(false);
@@ -120,7 +119,6 @@ const MultiplayerRoom = () => {
 
         if (data.hostPlayer === username) {
           setIsHost(true);
-          // Update host presence
           await updateDoc(roomRef, {
             hostLastSeen: serverTimestamp(),
             lastActivity: serverTimestamp()
@@ -132,7 +130,6 @@ const MultiplayerRoom = () => {
 
         if (data.guestPlayer === username) {
           setIsHost(false);
-          // Update guest presence
           await updateDoc(roomRef, {
             guestLastSeen: serverTimestamp(),
             lastActivity: serverTimestamp()
@@ -186,7 +183,6 @@ const MultiplayerRoom = () => {
               const currentTime = Date.now();
               const dataVersion = data.version || 0;
               
-              // Only update if we have a newer version to avoid infinite loops
               if (dataVersion > lastProcessedVersionRef.current) {
                 lastProcessedVersionRef.current = dataVersion;
                 setRoomData(data);
@@ -195,7 +191,6 @@ const MultiplayerRoom = () => {
                 setLastUpdateTime(currentTime);
                 setConnectionStatus("connected");
 
-                // Auto-navigate to game when it starts
                 if (data.gameStarted && data.status === "playing") {
                   const playerColor = data.hostPlayer === username ? data.hostColor : 
                                      (data.hostColor === "w" ? "b" : "w");
@@ -211,7 +206,6 @@ const MultiplayerRoom = () => {
             console.error("Real-time listener error:", error);
             setConnectionStatus("error");
             
-            // Attempt to reconnect after a delay
             if (reconnectTimeoutRef.current) {
               clearTimeout(reconnectTimeoutRef.current);
             }
@@ -223,7 +217,6 @@ const MultiplayerRoom = () => {
           }
         );
 
-        // Start heartbeat once listener is established
         startHeartbeat();
         
       } catch (err) {
@@ -245,13 +238,12 @@ const MultiplayerRoom = () => {
         clearTimeout(reconnectTimeoutRef.current);
       }
     };
-  }, [loading, error, roomRef, roomId, username, navigate, startHeartbeat]); // Removed lastUpdateTime dependency
+  }, [loading, error, roomRef, roomId, username, navigate, startHeartbeat]);
 
   // Enhanced update functions with optimistic updates and retry logic
   const updateTimeControl = async (minutes) => {
     if (!isHost) return;
     
-    // Optimistic update
     setSelectedTime(minutes);
     
     try {
@@ -262,10 +254,8 @@ const MultiplayerRoom = () => {
       });
     } catch (err) {
       console.error("Error updating time:", err);
-      // Revert optimistic update on error
       setSelectedTime(roomData?.timeControl || 5);
       
-      // Retry once
       setTimeout(async () => {
         try {
           await updateDoc(roomRef, { 
@@ -284,7 +274,6 @@ const MultiplayerRoom = () => {
     if (!isHost) return;
     const newColor = hostColor === "w" ? "b" : "w";
     
-    // Optimistic update
     setHostColor(newColor);
     
     try {
@@ -295,10 +284,8 @@ const MultiplayerRoom = () => {
       });
     } catch (err) {
       console.error("Error switching colors:", err);
-      // Revert optimistic update
       setHostColor(roomData?.hostColor || "w");
       
-      // Retry once
       setTimeout(async () => {
         try {
           await updateDoc(roomRef, { 
@@ -340,7 +327,7 @@ const MultiplayerRoom = () => {
   };
 
   const copyRoomLink = async () => {
-    const link = `${window.location.origin}/multiplayer/${roomId}?username=PLAYER_NAME`;
+    const link = `${roomId}`;
     try {
       await navigator.clipboard.writeText(link);
       setLinkCopied(true);
@@ -446,26 +433,15 @@ const MultiplayerRoom = () => {
         transform: isAnimating ? 'translateY(0) scale(1)' : 'translateY(30px) scale(0.95)',
         opacity: isAnimating ? 1 : 0,
       }}>
-        {/* Connection Status */}
-        <div style={styles.connectionStatus}>
-          <span style={{ color: statusDisplay.color }}>
-            {statusDisplay.icon} {statusDisplay.text}
-          </span>
-          {lastUpdateTime && (
-            <span style={styles.lastUpdate}>
-              Last update: {new Date(lastUpdateTime).toLocaleTimeString()}
-            </span>
-          )}
-        </div>
+        
 
         {/* Header */}
         <div style={styles.header}>
           <div style={styles.headerIcon}>♛</div>
           <h1 style={styles.title}>
-            <span style={styles.titleMain}>Battle</span>
-            <span style={styles.titleAccent}>Room</span>
+            <span style={styles.titleMain}>Chess</span>
+            <span style={styles.titleAccent}>Arena</span>
           </h1>
-          <p style={styles.subtitle}>Prepare for epic chess warfare</p>
         </div>
 
         {/* Room Info Card */}
@@ -481,35 +457,21 @@ const MultiplayerRoom = () => {
                 ...styles.copyButton,
                 ...(linkCopied ? styles.copyButtonSuccess : {})
               }}
-              onMouseEnter={(e) => {
-                if (!linkCopied) {
-                  e.target.style.transform = 'translateY(-2px) scale(1.05)';
-                  e.target.style.boxShadow = '0 8px 25px rgba(33, 150, 243, 0.4)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!linkCopied) {
-                  e.target.style.transform = 'translateY(0) scale(1)';
-                  e.target.style.boxShadow = '0 4px 15px rgba(33, 150, 243, 0.3)';
-                }
-              }}
             >
               {linkCopied ? (
                 <>✅ Copied!</>
               ) : (
-                <>📋 Share Link</>
+                <>📋 Copy Code</>
               )}
             </button>
           </div>
-          
           <div style={styles.shareHint}>
-            Send this link to your opponent to join the battle arena
+            Share this code with your opponent to start the battle!
           </div>
         </div>
 
         {/* Players Arena */}
         <div style={styles.playersSection}>
-          <div style={styles.playersTitle}>Warriors Assembly</div>
           <div style={styles.playersArena}>
             {/* Host Player */}
             <div style={{
@@ -524,12 +486,8 @@ const MultiplayerRoom = () => {
               <div style={styles.playerDetails}>
                 <div style={styles.playerName}>{roomData?.hostPlayer || "..."}</div>
                 <div style={styles.playerColorInfo}>
-                  <span style={styles.colorChip}>
-                    {hostColor === "w" ? "⚪" : "⚫"}
-                  </span>
-                  <span style={styles.colorText}>
-                    {hostColor === "w" ? "White Army" : "Black Legion"}
-                  </span>
+                  <span style={styles.colorChip}>{hostColor === "w" ? "♔" : "♚"}</span>
+                  <span style={styles.colorText}>{hostColor === "w" ? "White" : "Black"}</span>
                 </div>
                 <div style={styles.playerStatus}>⚔️ Ready for battle</div>
               </div>
@@ -560,12 +518,8 @@ const MultiplayerRoom = () => {
                   {roomData?.guestPlayer || "Awaiting challenger..."}
                 </div>
                 <div style={styles.playerColorInfo}>
-                  <span style={styles.colorChip}>
-                    {hostColor === "w" ? "⚫" : "⚪"}
-                  </span>
-                  <span style={styles.colorText}>
-                    {hostColor === "w" ? "Black Legion" : "White Army"}
-                  </span>
+                  <span style={styles.colorChip}>{hostColor === "w" ? "♚" : "♔"}</span>
+                  <span style={styles.colorText}>{hostColor === "w" ? "Black" : "White"}</span>
                 </div>
                 <div style={styles.playerStatus}>
                   {roomData?.guestPlayer ? "⚔️ Ready for battle" : "🔍 Searching for warrior..."}
@@ -578,13 +532,12 @@ const MultiplayerRoom = () => {
         {/* Game Settings */}
         {isHost && (
           <div style={styles.settingsSection}>
-            <div style={styles.settingsTitle}>Battle Configuration</div>
             <div style={styles.settingsGrid}>
               {/* Time Control */}
               <div style={styles.settingCard}>
                 <div style={styles.settingHeader}>
-                  <div style={styles.settingIcon}>⏱️</div>
-                  <div style={styles.settingLabel}>Time Control</div>
+                  <span style={styles.settingIcon}>⏱️</span>
+                  <span style={styles.settingLabel}>Time Control</span>
                 </div>
                 <div style={styles.timeOptions}>
                   {[1, 3, 5, 10, 15].map((minutes) => (
@@ -595,18 +548,6 @@ const MultiplayerRoom = () => {
                         ...(selectedTime === minutes ? styles.timeButtonActive : {})
                       }}
                       onClick={() => updateTimeControl(minutes)}
-                      onMouseEnter={(e) => {
-                        if (selectedTime !== minutes) {
-                          e.target.style.transform = 'translateY(-2px) scale(1.05)';
-                          e.target.style.boxShadow = '0 4px 12px rgba(141, 110, 99, 0.3)';
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (selectedTime !== minutes) {
-                          e.target.style.transform = 'translateY(0) scale(1)';
-                          e.target.style.boxShadow = '0 2px 8px rgba(141, 110, 99, 0.2)';
-                        }
-                      }}
                     >
                       {minutes}min
                     </button>
@@ -614,33 +555,25 @@ const MultiplayerRoom = () => {
                 </div>
               </div>
 
-              {/* Army Selection */}
+              {/* Color Switch */}
               <div style={styles.settingCard}>
                 <div style={styles.settingHeader}>
-                  <div style={styles.settingIcon}>🏰</div>
-                  <div style={styles.settingLabel}>Your Army</div>
+                  <span style={styles.settingIcon}>🎨</span>
+                  <span style={styles.settingLabel}>Your Color</span>
                 </div>
-                <button 
-                  onClick={switchColors} 
+                <button
+                  onClick={switchColors}
                   style={styles.colorSwitchButton}
-                  onMouseEnter={(e) => {
-                    e.target.style.transform = 'translateY(-2px) scale(1.02)';
-                    e.target.style.boxShadow = '0 6px 20px rgba(141, 110, 99, 0.3)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.transform = 'translateY(0) scale(1)';
-                    e.target.style.boxShadow = '0 3px 12px rgba(141, 110, 99, 0.2)';
-                  }}
                 >
                   <div style={styles.colorPreview}>
                     <span style={styles.colorPreviewIcon}>
-                      {hostColor === "w" ? "⚪" : "⚫"}
+                      {hostColor === "w" ? "♔" : "♚"}
                     </span>
                     <span style={styles.colorPreviewText}>
-                      {hostColor === "w" ? "White Army" : "Black Legion"}
+                      Playing as {hostColor === "w" ? "White" : "Black"}
                     </span>
                   </div>
-                  <div style={styles.switchIcon}>🔄</div>
+                  <span style={styles.switchIcon}>🔄</span>
                 </button>
               </div>
             </div>
@@ -656,18 +589,6 @@ const MultiplayerRoom = () => {
               style={{
                 ...styles.startButton,
                 ...(isHost ? {} : styles.startButtonDisabled)
-              }}
-              onMouseEnter={(e) => {
-                if (isHost) {
-                  e.target.style.transform = 'translateY(-3px) scale(1.02)';
-                  e.target.style.boxShadow = '0 15px 35px rgba(76, 175, 80, 0.4)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (isHost) {
-                  e.target.style.transform = 'translateY(0) scale(1)';
-                  e.target.style.boxShadow = '0 8px 25px rgba(76, 175, 80, 0.3)';
-                }
               }}
             >
               <div style={styles.startButtonContent}>
@@ -693,23 +614,13 @@ const MultiplayerRoom = () => {
                 <div style={styles.waitingDot}></div>
               </div>
               <div style={styles.waitingText}>Seeking worthy opponent...</div>
-              <div style={styles.waitingSubtext}>Share the room link to summon a challenger</div>
+              <div style={styles.waitingSubtext}>Share the room code to invite a challenger</div>
             </div>
           )}
           
           <button 
             onClick={() => navigate("/")} 
             style={styles.leaveButton}
-            onMouseEnter={(e) => {
-              e.target.style.backgroundColor = '#d32f2f';
-              e.target.style.transform = 'translateY(-2px) scale(1.02)';
-              e.target.style.boxShadow = '0 6px 20px rgba(244, 67, 54, 0.4)';
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.backgroundColor = 'rgba(244, 67, 54, 0.9)';
-              e.target.style.transform = 'translateY(0) scale(1)';
-              e.target.style.boxShadow = '0 4px 15px rgba(244, 67, 54, 0.3)';
-            }}
           >
             <span style={styles.leaveButtonIcon}>🚪</span>
             <span>Retreat to Home</span>
@@ -722,7 +633,7 @@ const MultiplayerRoom = () => {
 
 const styles = {
   wrapper: {
-    minHeight: "100vh",
+    height: "100vh",
     width: "100vw",
     background: "linear-gradient(120deg, #f2e9e4 0%, #d8cfc4 50%, #f9f4ef 100%)",
     display: "flex",
@@ -744,74 +655,74 @@ const styles = {
   },
   floatingPiece: {
     position: "absolute",
-    fontSize: "clamp(2rem, 4vw, 3.5rem)",
-    opacity: 0.15,
+    fontSize: "clamp(1.5rem, 3vw, 2.5rem)",
+    opacity: 0.1,
     color: "#8d6e63",
     animation: "float 8s ease-in-out infinite",
   },
   container: {
     background: "rgba(252, 248, 243, 0.95)",
     backdropFilter: "blur(10px)",
-    borderRadius: "2vh",
-    padding: "3vh 3vw",
-    boxShadow: "0 2vh 4vh rgba(141, 110, 99, 0.2), 0 0 0 0.1vh rgba(255, 255, 255, 0.3)",
-    maxWidth: "90vw",
-    minWidth: 300,
-    width: "clamp(400px, 80vw, 900px)",
-    maxHeight: "90vh",
+    borderRadius: "1.5vh",
+    padding: "1.5vh 2vw",
+    boxShadow: "0 1vh 3vh rgba(141, 110, 99, 0.2), 0 0 0 0.1vh rgba(255, 255, 255, 0.3)",
+    width: "clamp(350px, 85vw, 800px)",
+    height: "clamp(500px, 85vh, 700px)",
     position: "relative",
     zIndex: 1,
     transition: "all 0.8s cubic-bezier(0.4, 0, 0.2, 1)",
-    border: "0.2vh solid #efebe9",
-    overflowY: "auto",
+    border: "0.1vh solid #efebe9",
+    overflow: "hidden",
+    display: "flex",
+    flexDirection: "column",
   },
   connectionStatus: {
     position: "absolute",
     top: "1vh",
-    right: "2vw",
+    right: "1.5vw",
     display: "flex",
     flexDirection: "column",
     alignItems: "flex-end",
-    gap: "0.5vh",
-    fontSize: "clamp(0.7rem, 1.5vw, 0.9rem)",
+    gap: "0.3vh",
+    fontSize: "clamp(0.6rem, 1.2vw, 0.8rem)",
     fontWeight: "600",
     zIndex: 10,
   },
   lastUpdate: {
-    fontSize: "clamp(0.6rem, 1.2vw, 0.7rem)",
+    fontSize: "clamp(0.5rem, 1vw, 0.6rem)",
     color: "#6b7280",
     fontWeight: "400",
   },
   header: {
     textAlign: "center",
-    marginBottom: "3vh",
-    marginTop: "2vh",
+    marginBottom: "1vh",
+    flexShrink: 0,
   },
   headerIcon: {
-    fontSize: "clamp(3rem, 6vw, 5rem)",
+    fontSize: "clamp(2rem, 4vw, 3rem)",
     color: "#8d6e63",
-    textShadow: "0 0.5vh 1vh rgba(141, 110, 99, 0.3)",
+    textShadow: "0 0.3vh 0.6vh rgba(141, 110, 99, 0.3)",
     animation: "glow 3s ease-in-out infinite alternate",
-    marginBottom: "1vh",
+    marginBottom: "0.5vh",
     display: "block",
   },
   title: {
-    fontSize: "clamp(2.5rem, 6vw, 4rem)",
+    fontSize: "clamp(1.8rem, 4vw, 2.5rem)",
     fontWeight: "900",
-    margin: "0 0 1vh 0",
+    margin: "0 0 0.5vh 0",
     letterSpacing: "-0.02em",
     lineHeight: 1.1,
   },
   titleMain: {
     color: "#8d6e63",
-    textShadow: "0 0.2vh 0.5vh rgba(141, 110, 99, 0.3)",
+    textShadow: "0 0.1vh 0.3vh rgba(141, 110, 99, 0.3)",
   },
   titleAccent: {
     color: "#4e342e",
-    marginLeft: "1vw",
+    marginLeft: "0.5vw",
   },
   subtitle: {
-    fontSize: "clamp(1rem, 2.5vw, 1.3rem)",
+    fontSize: "clamp(0.8rem, 1.8vw, 1rem)",
     color: "#5d4037",
     fontWeight: "500",
     margin: 0,
@@ -820,103 +731,96 @@ const styles = {
   },
   roomCard: {
     background: "linear-gradient(135deg, rgba(141, 110, 99, 0.1) 0%, rgba(109, 76, 65, 0.15) 100%)",
-    borderRadius: "2vh",
-    padding: "2vh 2vw",
-    marginBottom: "3vh",
-    border: "0.2vh solid rgba(141, 110, 99, 0.2)",
-    boxShadow: "0 1vh 2vh rgba(141, 110, 99, 0.1)",
+    borderRadius: "1vh",
+    padding: "1vh 1.5vw",
+    marginBottom: "1vh",
+    border: "0.1vh solid rgba(141, 110, 99, 0.2)",
+    boxShadow: "0 0.5vh 1vh rgba(141, 110, 99, 0.1)",
+    flexShrink: 0,
   },
   roomHeader: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: "1.5vh",
+    marginBottom: "0.5vh",
     flexWrap: "wrap",
-    gap: "1vh",
+    gap: "0.5vh",
   },
   roomIdSection: {
     display: "flex",
     flexDirection: "column",
   },
   roomIdLabel: {
-    fontSize: "clamp(0.8rem, 2vw, 1rem)",
+    fontSize: "clamp(0.6rem, 1.4vw, 0.8rem)",
     color: "#6b7280",
     fontWeight: "600",
-    marginBottom: "0.5vh",
+    marginBottom: "0.2vh",
     textTransform: "uppercase",
     letterSpacing: "0.1em",
   },
   roomIdValue: {
-    fontSize: "clamp(1.5rem, 4vw, 2.2rem)",
+    fontSize: "clamp(1rem, 2.5vw, 1.5rem)",
     fontWeight: "900",
     color: "#4e342e",
     fontFamily: "monospace",
     letterSpacing: "0.15em",
-    textShadow: "0 0.1vh 0.3vh rgba(78, 52, 46, 0.2)",
+    textShadow: "0 0.1vh 0.2vh rgba(78, 52, 46, 0.2)",
   },
   copyButton: {
-    padding: "1vh 1.5vw",
+    padding: "0.8vh 1.2vw",
     background: "linear-gradient(135deg, #2196f3 0%, #1976d2 100%)",
     color: "white",
     border: "none",
-    borderRadius: "1.5vh",
-    fontSize: "clamp(0.8rem, 2vw, 1rem)",
+    borderRadius: "1vh",
+    fontSize: "clamp(0.6rem, 1.4vw, 0.8rem)",
     fontWeight: "600",
     cursor: "pointer",
     transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
     display: "flex",
     alignItems: "center",
-    gap: "0.5vw",
-    boxShadow: "0 0.5vh 1.5vh rgba(33, 150, 243, 0.3)",
+    gap: "0.3vw",
+    boxShadow: "0 0.3vh 1vh rgba(33, 150, 243, 0.3)",
     whiteSpace: "nowrap",
   },
   copyButtonSuccess: {
     background: "linear-gradient(135deg, #4caf50 0%, #388e3c 100%)",
-    boxShadow: "0 0.5vh 1.5vh rgba(76, 175, 80, 0.3)",
+    boxShadow: "0 0.3vh 1vh rgba(76, 175, 80, 0.3)",
   },
   shareHint: {
-    fontSize: "clamp(0.8rem, 2vw, 1rem)",
+    fontSize: "clamp(0.6rem, 1.4vw, 0.8rem)",
     color: "#6b7280",
     textAlign: "center",
     fontStyle: "italic",
     lineHeight: 1.4,
   },
   playersSection: {
-    marginBottom: "3vh",
-  },
-  playersTitle: {
-    fontSize: "clamp(1.2rem, 3vw, 1.6rem)",
-    fontWeight: "700",
-    color: "#4e342e",
-    marginBottom: "2vh",
-    textAlign: "center",
-    textTransform: "uppercase",
-    letterSpacing: "0.05em",
+    marginBottom: "1vh",
+    flexShrink: 0,
   },
   playersArena: {
     display: "flex",
     alignItems: "center",
-    gap: "2vw",
+    gap: "1vw",
     justifyContent: "center",
     flexWrap: "wrap",
   },
   playerCard: {
     background: "rgba(255, 255, 255, 0.9)",
-    borderRadius: "2vh",
-    padding: "2vh 1.5vw",
+    borderRadius: "1vh",
+    padding: "1vh 1vw",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    gap: "1.5vh",
-    minWidth: "clamp(180px, 25vw, 250px)",
-    border: "0.2vh solid rgba(0, 0, 0, 0.08)",
+    gap: "0.8vh",
+    minWidth: "clamp(140px, 20vw, 180px)",
+    border: "0.1vh solid rgba(0, 0, 0, 0.08)",
     transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
-    boxShadow: "0 1vh 2vh rgba(0, 0, 0, 0.1)",
+    boxShadow: "0 0.5vh 1vh rgba(0, 0, 0, 0.1)",
   },
   playerCardActive: {
     borderColor: "#8d6e63",
-    boxShadow: "0 0 0 0.3vh rgba(141, 110, 99, 0.2), 0 1.5vh 3vh rgba(141, 110, 99, 0.2)",
-    transform: "translateY(-0.5vh)",
+    boxShadow: "0 0 0 0.2vh rgba(141, 110, 99, 0.2), 0 0.8vh 1.5vh rgba(141, 110, 99, 0.2)",
+    transform: "translateY(-0.2vh)",
   },
   playerCardHost: {
     background: "linear-gradient(135deg, rgba(76, 175, 80, 0.1) 0%, rgba(67, 160, 71, 0.15) 100%)",
@@ -930,27 +834,27 @@ const styles = {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    gap: "1vh",
+    gap: "0.5vh",
   },
   playerAvatarIcon: {
-    fontSize: "clamp(2.5rem, 5vw, 4rem)",
-    width: "clamp(60px, 12vw, 100px)",
-    height: "clamp(60px, 12vw, 100px)",
+    fontSize: "clamp(1.5rem, 3vw, 2rem)",
+    width: "clamp(40px, 8vw, 60px)",
+    height: "clamp(40px, 8vw, 60px)",
     borderRadius: "50%",
     background: "linear-gradient(135deg, #8d6e63 0%, #6d4c41 100%)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     color: "white",
-    boxShadow: "0 1vh 2vh rgba(141, 110, 99, 0.3)",
-    border: "0.3vh solid rgba(255, 255, 255, 0.3)",
+    boxShadow: "0 0.5vh 1vh rgba(141, 110, 99, 0.3)",
+    border: "0.2vh solid rgba(255, 255, 255, 0.3)",
   },
   playerStatusBadge: {
     backgroundColor: "#4e342e",
     color: "white",
-    padding: "0.5vh 1vw",
-    borderRadius: "1vh",
-    fontSize: "clamp(0.7rem, 1.5vw, 0.9rem)",
+    padding: "0.3vh 0.8vw",
+    borderRadius: "0.5vh",
+    fontSize: "clamp(0.5rem, 1.2vw, 0.7rem)",
     fontWeight: "700",
     letterSpacing: "0.05em",
     textTransform: "uppercase",
@@ -960,29 +864,29 @@ const styles = {
     width: "100%",
   },
   playerName: {
-    fontSize: "clamp(1rem, 2.5vw, 1.4rem)",
+    fontSize: "clamp(0.8rem, 1.8vw, 1rem)",
     fontWeight: "700",
     color: "#4e342e",
-    marginBottom: "1vh",
+    marginBottom: "0.5vh",
     lineHeight: 1.2,
   },
   playerColorInfo: {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    gap: "1vw",
-    marginBottom: "1vh",
+    gap: "0.5vw",
+    marginBottom: "0.5vh",
   },
   colorChip: {
-    fontSize: "clamp(1.2rem, 2.5vw, 1.6rem)",
+    fontSize: "clamp(0.8rem, 1.6vw, 1rem)",
   },
   colorText: {
-    fontSize: "clamp(0.8rem, 2vw, 1rem)",
+    fontSize: "clamp(0.6rem, 1.4vw, 0.8rem)",
     color: "#6b7280",
     fontWeight: "600",
   },
   playerStatus: {
-    fontSize: "clamp(0.8rem, 1.8vw, 1rem)",
+    fontSize: "clamp(0.6rem, 1.4vw, 0.8rem)",
     color: "#4caf50",
     fontWeight: "600",
   },
@@ -990,11 +894,11 @@ const styles = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    margin: "0 1vw",
+    margin: "0 0.5vw",
   },
   vsCircle: {
-    width: "clamp(50px, 10vw, 80px)",
-    height: "clamp(50px, 10vw, 80px)",
+    width: "clamp(35px, 7vw, 50px)",
+    height: "clamp(35px, 7vw, 50px)",
     borderRadius: "50%",
     background: "linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)",
     display: "flex",
@@ -1002,8 +906,8 @@ const styles = {
     justifyContent: "center",
     color: "white",
     fontWeight: "900",
-    fontSize: "clamp(1rem, 2.5vw, 1.5rem)",
-    boxShadow: "0 1vh 2vh rgba(255, 107, 107, 0.4)",
+    fontSize: "clamp(0.8rem, 1.8vw, 1rem)",
+    boxShadow: "0 0.5vh 1vh rgba(255, 107, 107, 0.4)",
     position: "relative",
     animation: "pulse 2s ease-in-out infinite",
   },
@@ -1013,51 +917,45 @@ const styles = {
   },
   vsGlow: {
     position: "absolute",
-    top: "-0.5vh",
-    left: "-0.5vh",
-    right: "-0.5vh",
-    bottom: "-0.5vh",
+    top: "-0.3vh",
+    left: "-0.3vh",
+    right: "-0.3vh",
+    bottom: "-0.3vh",
     borderRadius: "50%",
     background: "linear-gradient(135deg, rgba(255, 107, 107, 0.3), rgba(238, 90, 36, 0.3))",
-    filter: "blur(0.5vh)",
+    filter: "blur(0.3vh)",
     animation: "glow 2s ease-in-out infinite alternate",
   },
   settingsSection: {
-    marginBottom: "3vh",
-  },
-  settingsTitle: {
-    fontSize: "clamp(1.2rem, 3vw, 1.6rem)",
-    fontWeight: "700",
-    color: "#4e342e",
-    marginBottom: "2vh",
-    textAlign: "center",
-    textTransform: "uppercase",
-    letterSpacing: "0.05em",
+    marginBottom: "1vh",
+    flex: "1 1 auto",
+    minHeight: 0,
+    overflow: "auto",
   },
   settingsGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
-    gap: "2vh",
+    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+    gap: "1vh",
   },
   settingCard: {
     background: "rgba(255, 255, 255, 0.9)",
-    borderRadius: "2vh",
-    padding: "2vh 2vw",
-    border: "0.2vh solid rgba(141, 110, 99, 0.1)",
-    boxShadow: "0 1vh 2vh rgba(141, 110, 99, 0.1)",
+    borderRadius: "1vh",
+    padding: "1vh 1.5vw",
+    border: "0.1vh solid rgba(141, 110, 99, 0.1)",
+    boxShadow: "0 0.5vh 1vh rgba(141, 110, 99, 0.1)",
     transition: "all 0.3s ease",
   },
   settingHeader: {
     display: "flex",
     alignItems: "center",
-    gap: "1vw",
-    marginBottom: "1.5vh",
+    gap: "0.8vw",
+    marginBottom: "1vh",
   },
   settingIcon: {
-    fontSize: "clamp(1.2rem, 3vw, 1.8rem)",
+    fontSize: "clamp(0.9rem, 2vw, 1.2rem)",
   },
   settingLabel: {
-    fontSize: "clamp(0.9rem, 2.2vw, 1.1rem)",
+    fontSize: "clamp(0.7rem, 1.6vw, 0.9rem)",
     fontWeight: "700",
     color: "#4e342e",
     textTransform: "uppercase",
@@ -1065,94 +963,96 @@ const styles = {
   },
   timeOptions: {
     display: "flex",
-    gap: "1vw",
+    gap: "0.5vw",
     flexWrap: "wrap",
     justifyContent: "center",
   },
   timeButton: {
-    padding: "1vh 1.5vw",
-    border: "0.2vh solid rgba(141, 110, 99, 0.3)",
-    borderRadius: "1vh",
+    padding: "0.6vh 1vw",
+    border: "0.1vh solid rgba(141, 110, 99, 0.3)",
+    borderRadius: "0.6vh",
     backgroundColor: "white",
     color: "#8d6e63",
     cursor: "pointer",
     transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-    fontSize: "clamp(0.8rem, 2vw, 1rem)",
+    fontSize: "clamp(0.6rem, 1.4vw, 0.8rem)",
     fontWeight: "600",
-    minWidth: "clamp(40px, 8vw, 60px)",
+    minWidth: "clamp(30px, 6vw, 45px)",
     textAlign: "center",
-    boxShadow: "0 0.5vh 1vh rgba(141, 110, 99, 0.2)",
+    boxShadow: "0 0.3vh 0.6vh rgba(141, 110, 99, 0.2)",
   },
   timeButtonActive: {
     borderColor: "#8d6e63",
     backgroundColor: "#8d6e63",
     color: "white",
-    transform: "translateY(-0.2vh) scale(1.05)",
-    boxShadow: "0 1vh 2vh rgba(141, 110, 99, 0.4)",
+    transform: "translateY(-0.1vh) scale(1.05)",
+    boxShadow: "0 0.5vh 1vh rgba(141, 110, 99, 0.4)",
   },
   colorSwitchButton: {
     width: "100%",
-    padding: "1.5vh 2vw",
-    border: "0.2vh solid rgba(141, 110, 99, 0.3)",
-    borderRadius: "1.5vh",
+    padding: "1vh 1.5vw",
+    border: "0.1vh solid rgba(141, 110, 99, 0.3)",
+    borderRadius: "1vh",
     backgroundColor: "white",
     cursor: "pointer",
     transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    boxShadow: "0 0.5vh 1.5vh rgba(141, 110, 99, 0.2)",
+    boxShadow: "0 0.3vh 1vh rgba(141, 110, 99, 0.2)",
   },
   colorPreview: {
     display: "flex",
     alignItems: "center",
-    gap: "1vw",
+    gap: "0.8vw",
   },
   colorPreviewIcon: {
-    fontSize: "clamp(1.5rem, 3vw, 2rem)",
+    fontSize: "clamp(1rem, 2vw, 1.3rem)",
   },
   colorPreviewText: {
-    fontSize: "clamp(0.9rem, 2.2vw, 1.1rem)",
+    fontSize: "clamp(0.7rem, 1.6vw, 0.9rem)",
     fontWeight: "600",
     color: "#4e342e",
   },
   switchIcon: {
-    fontSize: "clamp(1.2rem, 2.5vw, 1.5rem)",
+    fontSize: "clamp(0.9rem, 1.8vw, 1.1rem)",
     color: "#8d6e63",
     transition: "transform 0.3s ease",
   },
   actionSection: {
     display: "flex",
     flexDirection: "column",
-    gap: "2vh",
+    gap: "1vh",
+    flexShrink: 0,
+    marginTop: "auto",
   },
   startButton: {
     background: "linear-gradient(135deg, #4caf50 0%, #45a049 100%)",
     border: "none",
-    borderRadius: "2vh",
-    padding: "2vh 2vw",
+    borderRadius: "1.2vh",
+    padding: "1.2vh 1.5vw",
     color: "white",
     cursor: "pointer",
     transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-    boxShadow: "0 1vh 3vh rgba(76, 175, 80, 0.3)",
+    boxShadow: "0 0.6vh 1.8vh rgba(76, 175, 80, 0.3)",
     position: "relative",
     overflow: "hidden",
   },
   startButtonDisabled: {
     background: "linear-gradient(135deg, #bbb 0%, #999 100%)",
     cursor: "not-allowed",
-    boxShadow: "0 0.5vh 1.5vh rgba(0, 0, 0, 0.2)",
+    boxShadow: "0 0.3vh 1vh rgba(0, 0, 0, 0.2)",
   },
   startButtonContent: {
     display: "flex",
     alignItems: "center",
-    gap: "2vw",
+    gap: "1.5vw",
     position: "relative",
     zIndex: 1,
   },
   startButtonIcon: {
-    fontSize: "clamp(2rem, 4vw, 3rem)",
-    minWidth: "clamp(50px, 8vw, 80px)",
+    fontSize: "clamp(1.2rem, 2.5vw, 1.8rem)",
+    minWidth: "clamp(30px, 6vw, 45px)",
     textAlign: "center",
   },
   startButtonText: {
@@ -1160,95 +1060,95 @@ const styles = {
     textAlign: "left",
   },
   startButtonTitle: {
-    fontSize: "clamp(1.2rem, 3vw, 1.6rem)",
+    fontSize: "clamp(0.9rem, 2vw, 1.2rem)",
     fontWeight: "700",
-    marginBottom: "0.5vh",
+    marginBottom: "0.2vh",
     letterSpacing: "-0.01em",
   },
   startButtonSubtitle: {
-    fontSize: "clamp(0.8rem, 2vw, 1rem)",
+    fontSize: "clamp(0.6rem, 1.4vw, 0.8rem)",
     opacity: 0.9,
     fontWeight: "400",
   },
   startButtonArrow: {
-    fontSize: "clamp(1.5rem, 3vw, 2rem)",
+    fontSize: "clamp(1rem, 2vw, 1.3rem)",
     fontWeight: "bold",
     transition: "transform 0.3s ease",
   },
   waitingCard: {
     background: "rgba(255, 255, 255, 0.9)",
-    borderRadius: "2vh",
-    padding: "3vh 2vw",
+    borderRadius: "1.2vh",
+    padding: "1.5vh 1.5vw",
     textAlign: "center",
-    border: "0.3vh dashed rgba(141, 110, 99, 0.3)",
-    boxShadow: "0 1vh 2vh rgba(141, 110, 99, 0.1)",
+    border: "0.2vh dashed rgba(141, 110, 99, 0.3)",
+    boxShadow: "0 0.5vh 1vh rgba(141, 110, 99, 0.1)",
   },
   waitingAnimation: {
     display: "flex",
     justifyContent: "center",
-    gap: "1vw",
-    marginBottom: "2vh",
+    gap: "0.8vw",
+    marginBottom: "1vh",
   },
   waitingDot: {
-    width: "clamp(8px, 2vw, 15px)",
-    height: "clamp(8px, 2vw, 15px)",
+    width: "clamp(6px, 1.5vw, 10px)",
+    height: "clamp(6px, 1.5vw, 10px)",
     borderRadius: "50%",
     backgroundColor: "#8d6e63",
     animation: "bounce 1.4s ease-in-out infinite both",
   },
   waitingText: {
-    fontSize: "clamp(1.1rem, 2.8vw, 1.4rem)",
+    fontSize: "clamp(0.8rem, 2vw, 1rem)",
     fontWeight: "600",
     color: "#4e342e",
-    marginBottom: "1vh",
+    marginBottom: "0.5vh",
   },
   waitingSubtext: {
-    fontSize: "clamp(0.8rem, 2vw, 1rem)",
+    fontSize: "clamp(0.6rem, 1.4vw, 0.8rem)",
     color: "#6b7280",
     lineHeight: 1.4,
   },
   leaveButton: {
-    padding: "1.5vh 2vw",
+    padding: "1vh 1.5vw",
     backgroundColor: "rgba(244, 67, 54, 0.9)",
     color: "white",
     border: "none",
-    borderRadius: "1.5vh",
-    fontSize: "clamp(0.9rem, 2.2vw, 1.1rem)",
+    borderRadius: "1vh",
+    fontSize: "clamp(0.7rem, 1.6vw, 0.9rem)",
     fontWeight: "600",
     cursor: "pointer",
     transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    gap: "1vw",
-    boxShadow: "0 0.5vh 1.5vh rgba(244, 67, 54, 0.3)",
+    gap: "0.8vw",
+    boxShadow: "0 0.3vh 1vh rgba(244, 67, 54, 0.3)",
   },
   leaveButtonIcon: {
-    fontSize: "clamp(1.2rem, 2.5vw, 1.5rem)",
+    fontSize: "clamp(0.9rem, 1.8vw, 1.1rem)",
   },
   loadingContainer: {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    gap: "3vh",
-    padding: "5vh 3vw",
+    gap: "2vh",
+    padding: "3vh 2vw",
     textAlign: "center",
     background: "rgba(252, 248, 243, 0.95)",
     backdropFilter: "blur(10px)",
-    borderRadius: "2vh",
-    boxShadow: "0 2vh 4vh rgba(141, 110, 99, 0.2)",
-    border: "0.2vh solid #efebe9",
+    borderRadius: "1.5vh",
+    boxShadow: "0 1vh 3vh rgba(141, 110, 99, 0.2)",
+    border: "0.1vh solid #efebe9",
   },
   loadingSpinner: {
     position: "relative",
-    width: "clamp(60px, 12vw, 100px)",
-    height: "clamp(60px, 12vw, 100px)",
+    width: "clamp(40px, 8vw, 60px)",
+    height: "clamp(40px, 8vw, 60px)",
   },
   spinner: {
     width: "100%",
     height: "100%",
-    border: "0.5vh solid rgba(141, 110, 99, 0.3)",
-    borderTop: "0.5vh solid #8d6e63",
+    border: "0.3vh solid rgba(141, 110, 99, 0.3)",
+    borderTop: "0.3vh solid #8d6e63",
     borderRadius: "50%",
     animation: "spin 1s linear infinite",
   },
@@ -1258,57 +1158,57 @@ const styles = {
     left: "25%",
     width: "50%",
     height: "50%",
-    border: "0.3vh solid rgba(141, 110, 99, 0.5)",
-    borderBottom: "0.3vh solid #6d4c41",
+    border: "0.2vh solid rgba(141, 110, 99, 0.5)",
+    borderBottom: "0.2vh solid #6d4c41",
     borderRadius: "50%",
     animation: "spin 2s linear infinite reverse",
   },
   loadingText: {
-    fontSize: "clamp(1.2rem, 3vw, 1.8rem)",
+    fontSize: "clamp(0.9rem, 2.2vw, 1.2rem)",
     fontWeight: "700",
     color: "#4e342e",
   },
   loadingSubtext: {
-    fontSize: "clamp(0.9rem, 2.2vw, 1.1rem)",
+    fontSize: "clamp(0.7rem, 1.6vw, 0.9rem)",
     color: "#6b7280",
   },
   errorContainer: {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    gap: "2vh",
-    padding: "4vh 3vw",
+    gap: "1.5vh",
+    padding: "3vh 2vw",
     textAlign: "center",
     background: "rgba(252, 248, 243, 0.95)",
-    borderRadius: "2vh",
+    borderRadius: "1.5vh",
     backdropFilter: "blur(10px)",
-    border: "0.2vh solid #efebe9",
-    boxShadow: "0 2vh 4vh rgba(141, 110, 99, 0.2)",
+    border: "0.1vh solid #efebe9",
+    boxShadow: "0 1vh 3vh rgba(141, 110, 99, 0.2)",
   },
   errorIcon: {
-    fontSize: "clamp(3rem, 6vw, 5rem)",
+    fontSize: "clamp(2rem, 4vw, 3rem)",
   },
   errorTitle: {
-    fontSize: "clamp(1.4rem, 3.5vw, 2rem)",
+    fontSize: "clamp(1rem, 2.5vw, 1.4rem)",
     fontWeight: "700",
     color: "#4e342e",
   },
   errorMessage: {
-    fontSize: "clamp(1rem, 2.5vw, 1.3rem)",
+    fontSize: "clamp(0.8rem, 1.8vw, 1rem)",
     color: "#6b7280",
     lineHeight: 1.4,
   },
   errorButton: {
-    padding: "1.5vh 2vw",
+    padding: "1vh 1.5vw",
     backgroundColor: "#f44336",
     color: "white",
     border: "none",
-    borderRadius: "1.5vh",
-    fontSize: "clamp(0.9rem, 2.2vw, 1.1rem)",
+    borderRadius: "1vh",
+    fontSize: "clamp(0.7rem, 1.6vw, 0.9rem)",
     fontWeight: "600",
     cursor: "pointer",
     transition: "all 0.3s ease",
-    boxShadow: "0 0.5vh 1.5vh rgba(244, 67, 54, 0.3)",
+    boxShadow: "0 0.3vh 1vh rgba(244, 67, 54, 0.3)",
   },
 };
 
@@ -1318,14 +1218,14 @@ styleSheet.type = "text/css";
 styleSheet.innerText = `
   @keyframes float {
     0%, 100% { transform: translateY(0) rotate(0deg); }
-    25% { transform: translateY(-2vh) rotate(5deg); }
-    50% { transform: translateY(-1vh) rotate(-3deg); }
-    75% { transform: translateY(-3vh) rotate(8deg); }
+    25% { transform: translateY(-1vh) rotate(3deg); }
+    50% { transform: translateY(-0.5vh) rotate(-2deg); }
+    75% { transform: translateY(-1.5vh) rotate(4deg); }
   }
   
   @keyframes glow {
-    0% { filter: drop-shadow(0 0 0.5vh rgba(141, 110, 99, 0.5)); }
-    100% { filter: drop-shadow(0 0 1.5vh rgba(141, 110, 99, 0.8)); }
+    0% { filter: drop-shadow(0 0 0.3vh rgba(141, 110, 99, 0.5)); }
+    100% { filter: drop-shadow(0 0 0.8vh rgba(141, 110, 99, 0.8)); }
   }
   
   @keyframes pulse {
@@ -1347,20 +1247,11 @@ styleSheet.innerText = `
   .waitingDot:nth-child(2) { animation-delay: -0.16s; }
   .waitingDot:nth-child(3) { animation-delay: 0s; }
   
-  /* Hover effects */
-  button:hover .startButtonArrow {
-    transform: translateX(0.5vw) !important;
-  }
-  
-  .colorSwitchButton:hover .switchIcon {
-    transform: rotate(180deg) !important;
-  }
-  
-  /* Responsive adjustments */
+  /* Responsive adjustments for mobile */
   @media (max-width: 768px) {
     .playersArena {
       flex-direction: column !important;
-      gap: 3vh !important;
+      gap: 1.5vh !important;
     }
     
     .settingsGrid {
@@ -1376,7 +1267,7 @@ styleSheet.innerText = `
     .startButtonContent {
       flex-direction: column !important;
       text-align: center !important;
-      gap: 2vh !important;
+      gap: 1vh !important;
     }
     
     .startButtonText {
@@ -1388,7 +1279,7 @@ styleSheet.innerText = `
       top: auto !important;
       right: auto !important;
       align-items: center !important;
-      margin-bottom: 2vh !important;
+      margin-bottom: 1vh !important;
     }
   }
   
@@ -1398,39 +1289,82 @@ styleSheet.innerText = `
     }
     
     .colorPreview {
-      gap: 2vw !important;
+      gap: 1.5vw !important;
     }
     
     .container {
-      padding: 2vh 4vw !important;
+      padding: 1vh 3vw !important;
+      height: 95vh !important;
+    }
+    
+    .vsDivider {
+      margin: 0.5vh 0 !important;
     }
   }
   
-  /* Loading animations */
-  @keyframes shimmer {
-    0% { background-position: -200px 0; }
-    100% { background-position: calc(200px + 100%) 0; }
+  /* Extra small screens */
+  @media (max-height: 600px) {
+    .container {
+      height: 98vh !important;
+      padding: 0.8vh 2vw !important;
+    }
+    
+    .header {
+      margin-bottom: 0.5vh !important;
+    }
+    
+    .roomCard {
+      margin-bottom: 0.5vh !important;
+      padding: 0.8vh 1.2vw !important;
+    }
+    
+    .playersSection {
+      margin-bottom: 0.5vh !important;
+    }
+    
+    .settingsSection {
+      margin-bottom: 0.5vh !important;
+    }
+    
+    .actionSection {
+      gap: 0.5vh !important;
+    }
   }
   
-  /* Success animation */
-  @keyframes successPulse {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.1); }
-    100% { transform: scale(1); }
-  }
-  
-  .copyButtonSuccess {
-    animation: successPulse 0.3s ease-out !important;
-  }
-  
-  /* Connection status animations */
-  @keyframes connectionPulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.6; }
-  }
-  
-  .connectionStatus span:first-child {
-    animation: connectionPulse 2s ease-in-out infinite;
+  /* Landscape mobile */
+  @media (max-height: 500px) and (orientation: landscape) {
+    .container {
+      height: 95vh !important;
+      padding: 0.5vh 2vw !important;
+    }
+    
+    .playersArena {
+      flex-direction: row !important;
+      gap: 1vw !important;
+    }
+    
+    .playerCard {
+      min-width: clamp(120px, 18vw, 160px) !important;
+      padding: 0.8vh 0.8vw !important;
+    }
+    
+    .header {
+      margin-bottom: 0.3vh !important;
+    }
+    
+    .headerIcon {
+      font-size: clamp(1.5rem, 3vw, 2rem) !important;
+      margin-bottom: 0.2vh !important;
+    }
+    
+    .title {
+      font-size: clamp(1.4rem, 3vw, 1.8rem) !important;
+      margin-bottom: 0.2vh !important;
+    }
+    
+    .subtitle {
+      font-size: clamp(0.6rem, 1.4vw, 0.8rem) !important;
+    }
   }
 `;
 
