@@ -9,7 +9,6 @@ const formatTime = (seconds) => {
 
 const Timer = ({ label, time }) => (
   <div className="user-box">
-    <div className="detail-box">{label}</div>
     <div
       className="detail-box"
       style={{
