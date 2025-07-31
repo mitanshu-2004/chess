@@ -1,9 +1,30 @@
 {
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/" }
-  ],
+  "version": 2,
   "routes": [
-    { "src": "/multiplayer/[^.]+", "dest": "/" },
-    { "src": "/play/[^.]+", "dest": "/" }
-  ]
+    {
+      "src": "/multiplayer/([^/]+)",
+      "dest": "/multiplayer/[roomId]"
+    },
+    {
+      "src": "/play/([^/]+)",
+      "dest": "/play/[roomId]"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/"
+    }
+  ],
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/node"
+    }
+  ],
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "framework": "vite",
+  "regions": ["iad1"]
 }
