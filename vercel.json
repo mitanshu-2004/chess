@@ -1,0 +1,9 @@
+{
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/" }
+  ],
+  "routes": [
+    { "src": "/multiplayer/[^.]+", "dest": "/" },
+    { "src": "/play/[^.]+", "dest": "/" }
+  ]
+}

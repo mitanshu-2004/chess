@@ -352,7 +352,41 @@ const NewMultiplayerGame = () => {
                 {displayBoard.map(({ piece, displayRow, displayCol }) => renderSquare(piece, displayRow, displayCol))}
               </div>
 
-              {/* Right Panel - Controls */}
+              
+            </div>
+
+            {/* Bottom Player Info */}
+            <div style={styles.playerSection}>
+              <div style={styles.playerInfo}>
+                <div style={styles.playerAvatar}>
+                  <span style={styles.playerIcon}>{playerColor === "w" ? "⚪" : "⚫"}</span>
+                </div>
+                
+                <div style={styles.playerRightSection}>
+                  <div style={styles.playerDetails}>
+                    <div style={styles.playerName}>{username}</div>
+                    <div style={styles.connectionStatus}>
+                      <span
+                        style={{
+                          ...styles.connectionDot,
+                          backgroundColor: "#4caf50",
+                        }}
+                      ></span>
+                      Online
+                    </div>
+                  </div>
+                  
+                </div>
+                <div style={styles.capturedFullWidth}>
+                  {renderCapturedPieces(playerColor === "w" ? "black" : "white", "middle")}
+                </div>
+                <div style={styles.timerContainer}>
+                    <Timer label="" time={playerColor === "w" ? timeLeft.white : timeLeft.black} />
+                  </div>
+              </div>
+            </div>
+          </div>
+          {/* Right Panel - Controls */}
               <div className="controls-section" style={styles.controlsSection}>
                 {/* Move History */}
                 <div style={styles.historySection}>
@@ -459,39 +493,6 @@ const NewMultiplayerGame = () => {
                   </div>
                 )}
               </div>
-            </div>
-
-            {/* Bottom Player Info */}
-            <div style={styles.playerSection}>
-              <div style={styles.playerInfo}>
-                <div style={styles.playerAvatar}>
-                  <span style={styles.playerIcon}>{playerColor === "w" ? "⚪" : "⚫"}</span>
-                </div>
-                
-                <div style={styles.playerRightSection}>
-                  <div style={styles.playerDetails}>
-                    <div style={styles.playerName}>{username}</div>
-                    <div style={styles.connectionStatus}>
-                      <span
-                        style={{
-                          ...styles.connectionDot,
-                          backgroundColor: "#4caf50",
-                        }}
-                      ></span>
-                      Online
-                    </div>
-                  </div>
-                  
-                </div>
-                <div style={styles.capturedFullWidth}>
-                  {renderCapturedPieces(playerColor === "w" ? "black" : "white", "middle")}
-                </div>
-                <div style={styles.timerContainer}>
-                    <Timer label="" time={playerColor === "w" ? timeLeft.white : timeLeft.black} />
-                  </div>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -764,14 +765,14 @@ const styles = {
   controlsSection: {
     background: "rgba(255, 255, 255, 0.05)",
     borderRadius: "1rem",
-    padding: "1.5rem",
+    padding: "1.5rem", // Changed from 10rem to 1.5rem
     backdropFilter: "blur(10px)",
     border: "1px solid rgba(255, 255, 255, 0.1)",
     display: "flex",
     flexDirection: "column",
     gap: "1.5rem",
-    width: "15%",
-  },
+    width: "50%",
+},
   // Simple captured pieces container
   capturedPiecesContainer: {
     background: "rgba(255, 255, 255, 0.9)",
@@ -1270,6 +1271,37 @@ styleSheet.innerText = `
     .playAgainButton,
     .leaveButton {
       padding: 0.75rem;
+    }
+  }
+    // Add to the existing media queries in styleSheet.innerText
+  @media (max-width: 380px) {
+    .game-layout {
+      padding: 0;
+    }
+    
+    .board-container {
+      width: 100vw;
+      max-width: 100vw;
+      border-radius: 0;
+    }
+    
+    .playerSection {
+      width: 100% !important;
+      border-radius: 0;
+    }
+    
+    .controlsSection {
+      border-radius: 0;
+      width: 100% !important;
+    }
+    
+    .playerName {
+      font-size: 1rem !important;
+    }
+    
+    .playerAvatar {
+      width: 40px !important;
+      height: 40px !important;
     }
   }
 `
