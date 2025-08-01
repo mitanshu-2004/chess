@@ -1,12 +1,14 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useParams, useSearchParams, useNavigate } from "react-router-dom"
 import useRealtimeChess from "../hooks/useRealtimeChess"
 import ChessSquare from "../components/ChessSquare"
 import MoveHistory from "../components/MoveHistory"
 import Timer from "../components/Timer"
-import "../styles/Chessboard.css"
+import PlayerCard from "../components/PlayerCard" // Import PlayerCard
+import GameOverModal from "../components/GameOverModal" // Import GameOverModal
+import { COLORS } from "../utils/colors"
 
 const NewMultiplayerGame = () => {
   const { roomId } = useParams()
@@ -16,9 +18,525 @@ const NewMultiplayerGame = () => {
   const selectedTime = Number.parseInt(searchParams.get("time"), 10) || 5
   const username = searchParams.get("username") || "You"
 
-  // UI state for buttons and dialogs
+  const [showForfeitConfirm, setShowForfeitConfirm] = useState(false)
+  const [error, setError] = useState(null)
   const [isForfeiting, setIsForfeiting] = useState(false)
-  const [showConfirmDialog, setShowConfirmDialog] = useState(null)
+
+  // Validate required parameters
+  useEffect(() => {
+    if (!roomId || !playerColor || !username) {
+      setError("Missing required game parameters. Please return to the lobby.")
+      return
+    }
+    
+    if (!["w", "b"].includes(playerColor)) {
+      setError("Invalid player color. Please return to the lobby.")
+      return
+    }
+    
+    if (selectedTime < 1 || selectedTime > 60) {
+      setError("Invalid time control. Please return to the lobby.")
+      return
+    }
+  }, [roomId, playerColor, username, selectedTime])
+
+  // Handle errors
+  if (error) {
+    return (
+      <div style={{
+        height: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "linear-gradient(120deg, #f5f5dc 0%, #e6d7c3 50%, #f5f5dc 100%)",
+        fontFamily: "'Segoe UI', sans-serif"
+      }}>
+        <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>⚠️</div>
+        <div style={{ fontSize: "1.5rem", marginBottom: "1rem", textAlign: "center" }}>Game Error</div>
+        <div style={{ fontSize: "1rem", marginBottom: "2rem", textAlign: "center", color: "#666" }}>{error}</div>
+        <button 
+          onClick={() => navigate("/multiplayer-lobby?username=" + encodeURIComponent(username))}
+          style={{
+            padding: "0.75rem 1.5rem",
+            fontSize: "1rem",
+            backgroundColor: "#8d6e63",
+            color: "white",
+            border: "none",
+            borderRadius: "0.5rem",
+            cursor: "pointer"
+          }}
+        >
+          Return to Lobby
+        </button>
+      </div>
+    )
+  }
+
+  const customStyles = `
+    @keyframes float {
+      0%, 100% { transform: translateY(0) rotate(0deg); }
+      25% { transform: translateY(-2vh) rotate(5deg); }
+      50% { transform: translateY(-1vh) rotate(-3deg); }
+      75% { transform: translateY(-3vh) rotate(8deg); }
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.05); opacity: 0.8; }
+    }
+
+    @keyframes dialogSlideIn {
+      0% { opacity: 0; transform: translateY(-5rem) scale(0.9); }
+      100% { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    @keyframes selectedPulse {
+      0%, 100% {
+         outline: 0.3rem solid ${COLORS.selectedBorder};
+        box-shadow: 0 0 1.5rem rgba(230, 184, 0, 0.4);
+      }
+      50% {
+         outline: 0.4rem solid ${COLORS.accentDark};
+        box-shadow: 0 0 2.5rem rgba(204, 153, 0, 0.6);
+      }
+    }
+
+    @keyframes lastMovePulse {
+      0%, 100% {
+         background-color: ${COLORS.lastMoveBg} !important;
+        box-shadow: inset 0 0 0 0.2rem rgba(255, 215, 0, 0.3);
+      }
+      50% {
+         background-color: rgba(255, 215, 0, 0.2) !important;
+        box-shadow: inset 0 0 0 0.3rem rgba(255, 215, 0, 0.5);
+      }
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: 'Segoe UI', sans-serif;
+    }
+
+    .main-layout {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      width: 100%;
+      background: linear-gradient(120deg, ${COLORS.bgLight1} 0%, ${COLORS.bgLight2} 50%, ${COLORS.bgLight1} 100%);
+      color: ${COLORS.textPrimary};
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      padding: 1rem;
+      box-sizing: border-box;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .background-elements {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .floating-piece {
+      position: absolute;
+      font-size: clamp(1.5rem, 3vw, 2.5rem);
+      opacity: 0.08;
+      color: #8d6e63;
+      animation: float 8s ease-in-out infinite;
+    }
+
+    .game-content-area {
+      display: flex;
+      flex-grow: 1;
+      justify-content: center;
+      align-items: flex-start;
+      gap: 5rem;
+      width: 100%;
+      max-width: 1200px;
+      margin: 0 auto;
+      position: relative;
+      z-index: 1;
+    }
+
+    .board-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .player-card-container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      max-width: 600px;
+      padding: 0.8rem;
+      background: rgba(252, 248, 243, 0.95);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 0.5vh 1.5vh rgba(141, 110, 99, 0.2);
+      border-radius: 12px;
+      gap: 1rem;
+      border: 0.1vh solid rgba(255, 255, 255, 0.3);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .player-card-container:hover {
+      box-shadow: 0 0.8vh 2vh rgba(141, 110, 99, 0.25);
+      transform: translateY(-1px);
+    }
+
+    .player-card-container.top {
+      margin-bottom: 0.5rem;
+    }
+
+    .player-card-container.bottom {
+      margin-top: 0.5rem;
+    }
+
+    .board-container {
+      width: min(80vw, 80vh);
+      max-width: 600px;
+      aspect-ratio: 1 / 1;
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 1vh 3vh rgba(141, 110, 99, 0.3), 0 0 0 0.2vh rgba(255, 255, 255, 0.2);
+      flex-shrink: 0;
+      border: 0.2vh solid rgba(141, 110, 99, 0.2);
+    }
+
+    .right-panel-wrapper {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      flex-shrink: 0;
+    }
+
+    .errorContainer {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, ${COLORS.danger} 0%, ${COLORS.dangerDark} 100%);
+      color: ${COLORS.textWhite};
+      gap: 2vh;
+      padding: 2vh;
+      text-align: center;
+    }
+    .errorIcon {
+      font-size: clamp(3rem, 8vw, 6rem);
+      margin-bottom: 1vh;
+    }
+    .errorTitle {
+      font-size: clamp(1.5rem, 4vw, 2.5rem);
+      font-weight: 700;
+      margin-bottom: 1vh;
+    }
+    .errorMessage {
+      font-size: clamp(1rem, 2.5vw, 1.3rem);
+      opacity: 0.9;
+      margin-bottom: 3vh;
+      max-width: 60rem;
+      line-height: 1.5;
+    }
+    .errorButton {
+      padding: 1.5vh 3vw;
+      font-size: clamp(1rem, 2.5vw, 1.2rem);
+      font-weight: 600;
+      border-radius: 1.5vh;
+      border: none;
+      cursor: pointer;
+      background-color: ${COLORS.bgDark};
+      color: ${COLORS.textWhite};
+      box-shadow: 0 1vh 2vh rgba(0, 0, 0, 0.3);
+      transition: all 0.3s ease;
+    }
+    .errorButton:hover {
+      transform: translateY(-0.2rem) scale(1.02);
+      box-shadow: 0 1.5vh 3vh rgba(0, 0, 0, 0.4);
+    }
+    .waitingContainer {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, ${COLORS.textLight} 0%, ${COLORS.textSecondary} 100%);
+      position: relative;
+      overflow: hidden;
+      padding: 2vh;
+    }
+    .backgroundPattern {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .waitingCard {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(2rem);
+      border-radius: 3vh;
+      padding: 4vh 3vw;
+      box-shadow: 0 3vh 6vh rgba(0, 0, 0, 0.3);
+      max-width: 90vw;
+      width: 50rem;
+      text-align: center;
+      border: 0.1rem solid rgba(255, 255, 255, 0.3);
+      position: relative;
+      z-index: 1;
+    }
+    .waitingAnimation {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 3vh;
+    }
+    .spinnerRing {
+      width: 8rem;
+      height: 8rem;
+      border: 0.4rem solid rgba(141, 110, 99, 0.3);
+      border-top: 0.4rem solid ${COLORS.textLight};
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .spinnerCore {
+      width: 4rem;
+      height: 4rem;
+      border: 0.2rem solid rgba(109, 76, 65, 0.5);
+      border-bottom: 0.2rem solid ${COLORS.textSecondary};
+      border-radius: 50%;
+      animation: spin 2s linear infinite reverse;
+    }
+    .waitingTitle {
+      font-size: clamp(1.5rem, 4vw, 2rem);
+      font-weight: 700;
+      color: ${COLORS.textPrimary};
+      margin-bottom: 2vh;
+      margin: 0;
+    }
+    .waitingDetails {
+      display: flex;
+      flex-direction: column;
+      gap: 1vh;
+      margin-bottom: 3vh;
+    }
+    .waitingInfo {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1vh 2vw;
+      background: rgba(141, 110, 99, 0.1);
+      border-radius: 1vh;
+      border: 0.1rem solid rgba(141, 110, 99, 0.2);
+    }
+    .waitingLabel {
+      font-size: clamp(0.9rem, 2.2vw, 1.1rem);
+      color: ${COLORS.textSecondary};
+      font-weight: 600;
+    }
+    .waitingValue {
+      font-size: clamp(0.9rem, 2.2vw, 1.1rem);
+      color: ${COLORS.textPrimary};
+      font-weight: 700;
+      font-family: monospace;
+    }
+    .waitingText {
+      font-size: clamp(1rem, 2.5vw, 1.2rem);
+      color: ${COLORS.textSecondary};
+      margin-bottom: 3vh;
+      line-height: 1.4;
+    }
+    .waitingLeaveButton {
+      padding: 1.5vh 3vw;
+      background: linear-gradient(135deg, ${COLORS.danger} 0%, ${COLORS.dangerDark} 100%);
+      color: ${COLORS.textWhite};
+      border: none;
+      border-radius: 1.5vh;
+      font-size: clamp(1rem, 2.5vw, 1.2rem);
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 1vh 2vh rgba(244, 67, 54, 0.3);
+    }
+    .waitingLeaveButton:hover {
+      transform: translateY(-0.2rem) scale(1.02);
+      box-shadow: 0 0.8rem 2.5rem rgba(244, 67, 54, 0.4);
+    }
+    .forfeitButton {
+      background: linear-gradient(135deg, ${COLORS.danger} 0%, ${COLORS.dangerDark} 100%);
+      border: none;
+      border-radius: 1rem;
+      padding: 1rem;
+      color: ${COLORS.textWhite};
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 0.4rem 1.5rem rgba(244, 67, 54, 0.3);
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      font-size: 1rem;
+      font-weight: 600;
+      width: 100%;
+    }
+    .forfeitButton:hover {
+      transform: translateY(-0.2rem) scale(1.02);
+      box-shadow: 0 0.8rem 2.5rem rgba(244, 67, 54, 0.4);
+    }
+    .buttonIcon {
+      font-size: clamp(1.2rem, 3vw, 1.5rem);
+      min-width: 4rem;
+      text-align: center;
+    }
+    .buttonTextContainer {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.2rem;
+    }
+    .buttonTitle {
+      font-size: clamp(1rem, 2.5vw, 1.2rem);
+      font-weight: 700;
+      line-height: 1;
+    }
+    .buttonSubtitle {
+      font-size: clamp(0.8rem, 2vw, 0.9rem);
+      opacity: 0.9;
+      font-weight: 400;
+      line-height: 1;
+    }
+    .dialogOverlay {
+      position: fixed;
+      inset: 0;
+      background-color: ${COLORS.dialogOverlay};
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      backdrop-filter: blur(0.8rem);
+    }
+    .dialogBox {
+      background: ${COLORS.dialogBg};
+      border-radius: 2rem;
+      padding: 3rem 2rem;
+      max-width: 90vw;
+      width: 40rem;
+      text-align: center;
+      border: 0.1rem solid rgba(141, 110, 99, 0.3);
+      box-shadow: 0 3rem 6rem rgba(0, 0, 0, 0.4);
+      animation: dialogSlideIn 0.3s ease-out;
+    }
+    .dialogIcon {
+      font-size: clamp(3rem, 8vw, 4rem);
+      margin-bottom: 2rem;
+    }
+    .dialogTitle {
+      font-size: clamp(1.3rem, 3.5vw, 1.8rem);
+      font-weight: 700;
+      color: ${COLORS.textPrimary};
+      margin-bottom: 1.5rem;
+    }
+    .dialogMessage {
+      font-size: clamp(1rem, 2.5vw, 1.1rem);
+      color: ${COLORS.textSecondary};
+      line-height: 1.5;
+      margin-bottom: 3rem;
+    }
+    .dialogButtons {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+    }
+    .dialogCancelButton {
+      padding: 1rem 2rem;
+      background: ${COLORS.textMuted};
+      color: ${COLORS.textWhite};
+      border: none;
+      border-radius: 0.5rem;
+      font-size: clamp(0.9rem, 2.2vw, 1rem);
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      min-width: 12rem;
+    }
+    .dialogCancelButton:hover {
+      background-color: ${COLORS.textSecondary};
+      transform: translateY(-0.1rem);
+    }
+    .dialogConfirmButton {
+      padding: 1rem 2rem;
+      background: ${COLORS.danger};
+      color: ${COLORS.textWhite};
+      border: none;
+      border-radius: 0.5rem;
+      font-size: clamp(0.9rem, 2.2vw, 1rem);
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      min-width: 12rem;
+    }
+    .dialogConfirmButton:hover {
+      background-color: ${COLORS.dangerDark};
+      transform: translateY(-0.1rem);
+    }
+
+    /* Media Queries */
+    @media (max-width: 1024px) {
+      .main-layout {
+        padding: 0.5rem;
+      }
+      .game-content-area {
+        flex-direction: column;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      .board-container {
+        width: 95vw;
+        max-width: 95vw;
+      }
+      .player-card-container {
+        width: 95vw;
+        max-width: 95vw;
+        flex-direction: row;
+        justify-content: space-between;
+        padding: 0.5rem;
+      }
+      .right-panel-wrapper {
+        width: 100%;
+        max-width: 400px;
+        align-items: center;
+      }
+    }
+    @media (max-width: 600px) {
+      .board-container {
+        width: 100%;
+        max-width: 100%;
+      }
+      .player-card-container {
+        width: 100%;
+        max-width: 100%;
+      }
+    }
+  `
 
   const {
     gameState,
@@ -26,7 +544,6 @@ const NewMultiplayerGame = () => {
     possibleMoves,
     captureSquares,
     lastMove,
-    moveCount,
     roomInfo,
     isGameStarted,
     isMyTurn,
@@ -38,80 +555,6 @@ const NewMultiplayerGame = () => {
     getGameStatusMessage,
   } = useRealtimeChess(roomId, playerColor, username, selectedTime)
 
-  // Validate parameters
-  if (!roomId || !playerColor || !username || !["w", "b"].includes(playerColor)) {
-    return (
-      <div style={styles.errorContainer}>
-        <div style={styles.errorIcon}>❌</div>
-        <div style={styles.errorTitle}>Invalid Game Parameters</div>
-        <div style={styles.errorMessage}>Please check your room link and try again</div>
-        <button onClick={() => navigate("/")} style={styles.errorButton}>
-          🏠 Return Home
-        </button>
-      </div>
-    )
-  }
-
-  // Wait for game to start
-  if (!isGameStarted) {
-    return (
-      <div style={styles.waitingContainer}>
-        <div style={styles.backgroundPattern}>
-          {[...Array(8)].map((_, i) => (
-            <div
-              key={i}
-              style={{
-                ...styles.floatingPiece,
-                top: `${10 + i * 12}%`,
-                left: `${5 + (i % 2) * 85}%`,
-                animationDelay: `${i * 0.6}s`,
-              }}
-            >
-              {["♔", "♛", "♜", "♝", "♞", "♟", "♕", "♖"][i]}
-            </div>
-          ))}
-        </div>
-        <div style={styles.waitingCard}>
-          <div style={styles.waitingAnimation}>
-            <div style={styles.spinnerRing}>
-              <div style={styles.spinnerCore}></div>
-            </div>
-          </div>
-          <h2 style={styles.waitingTitle}>⚔️ Preparing Chess Arena</h2>
-          <div style={styles.waitingDetails}>
-            <div style={styles.waitingInfo}>
-              <span style={styles.waitingLabel}>Room ID:</span>
-              <span style={styles.waitingValue}>{roomId}</span>
-            </div>
-            <div style={styles.waitingInfo}>
-              <span style={styles.waitingLabel}>Playing as:</span>
-              <span style={styles.waitingValue}>{playerColor === "w" ? "⚪ White" : "⚫ Black"}</span>
-            </div>
-            <div style={styles.waitingInfo}>
-              <span style={styles.waitingLabel}>Time Control:</span>
-              <span style={styles.waitingValue}>{selectedTime} minutes</span>
-            </div>
-          </div>
-          <div style={styles.waitingText}>Waiting for opponent to join the battle...</div>
-          <button
-            onClick={() => navigate("/")}
-            style={styles.waitingLeaveButton}
-            onMouseEnter={(e) => {
-              e.target.style.transform = "translateY(-2px) scale(1.02)"
-              e.target.style.boxShadow = "0 8px 25px rgba(244, 67, 54, 0.4)"
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.transform = "translateY(0) scale(1)"
-              e.target.style.boxShadow = "0 4px 15px rgba(244, 67, 54, 0.3)"
-            }}
-          >
-            🚪 Leave Room
-          </button>
-        </div>
-      </div>
-    )
-  }
-
   // Convert square name to file/rank indices
   const squareToIndices = (square) => {
     const file = square.charCodeAt(0) - 97
@@ -122,15 +565,6 @@ const NewMultiplayerGame = () => {
   // Convert file/rank indices to square name
   const indicesToSquare = (file, rank) => {
     return String.fromCharCode(97 + file) + (rank + 1)
-  }
-
-  // Get display coordinates for a square based on player orientation
-  const getDisplayCoords = (file, rank) => {
-    if (playerColor === "w") {
-      return { displayFile: file, displayRank: 7 - rank }
-    } else {
-      return { displayFile: 7 - file, displayRank: rank }
-    }
   }
 
   // Get actual coordinates from display coordinates
@@ -146,7 +580,6 @@ const NewMultiplayerGame = () => {
   const handleSquareClickWithCoords = (displayRow, displayCol) => {
     const { file, rank } = getActualCoords(displayCol, displayRow)
     const square = indicesToSquare(file, rank)
-    console.log(`🎯 Click: display(${displayRow},${displayCol}) -> actual(${file},${rank}) -> ${square}`)
     handleSquareClick(square)
   }
 
@@ -190,1093 +623,272 @@ const NewMultiplayerGame = () => {
     return displayBoard
   }
 
-  // Enhanced forfeit function
-  const handleForfeitGame = async () => {
-    if (isForfeiting) return
+  const handleForfeitConfirm = async () => {
+    setShowForfeitConfirm(false)
     setIsForfeiting(true)
     try {
-      console.log("🏳️ Forfeiting game - opponent will win...")
       await forfeitGame()
-      console.log("✅ Game forfeited successfully - opponent wins")
-      setTimeout(() => {
-        navigate("/")
-      }, 2000)
     } catch (error) {
       console.error("❌ Failed to forfeit game:", error)
       alert("Failed to forfeit game. You can still leave the room.")
-      navigate("/")
     } finally {
       setIsForfeiting(false)
     }
   }
 
-  // Leave game (only when game is over)
-  const handleLeaveGame = () => {
-    console.log("🚪 Leaving game...")
-    navigate("/")
-  }
-
-  // Reset game with better error handling
-  const handleResetGame = async () => {
+  const handlePlayAgain = async () => {
     try {
-      console.log("🔄 Resetting game...")
       await resetGame()
-      console.log("✅ Game reset successfully")
     } catch (error) {
       console.error("❌ Failed to reset game:", error)
       alert("Failed to reset game. Please try again.")
     }
   }
 
-  // Updated render captured pieces function
-  const renderCapturedPieces = (color, position) => {
-    const pieces = gameState.capturedPieces[color] || []
-    const pieceValues = { p: 1, n: 3, b: 3, r: 5, q: 9 }
-    const totalValue = pieces.reduce((sum, piece) => sum + (pieceValues[piece] || 0), 0)
-
-    return (
-      <div style={styles.capturedPiecesContainer}>
-        {pieces.length > 0 ? (
-          <div style={styles.capturedPiecesList}>
-            {pieces.map((piece, index) => (
-              <span key={index} style={styles.capturedPiece}>
-                {getPieceSymbol(piece, color)}
-              </span>
-            ))}
-            {totalValue > 0 && <span style={styles.capturedValue}>+{totalValue}</span>}
-          </div>
-        ) : (
-          <div style={styles.noCapturedPieces}>No captures</div>
-        )}
-      </div>
-    )
+  const handleCloseGameOverModal = () => {
+    // Optionally navigate away or just close the modal
+    // For now, we'll just let the game state handle it.
+    // If you want to force navigation, uncomment: navigate("/");
   }
-
-  // Get piece symbol
-  const getPieceSymbol = (piece, color) => {
-    const symbols = {
-      white: { p: "♙", r: "♖", n: "♘", b: "♗", q: "♕", k: "♔" },
-      black: { p: "♟", r: "♜", n: "♞", b: "♝", q: "♛", k: "♚" },
-    }
-    return symbols[color][piece] || piece
-  }
-
-  // Confirmation dialog component
-  const ConfirmDialog = ({ action, onConfirm, onCancel }) => (
-    <div style={styles.dialogOverlay}>
-      <div style={styles.dialogBox}>
-        <div style={styles.dialogIcon}>🏳️</div>
-        <div style={styles.dialogTitle}>Forfeit Game?</div>
-        <div style={styles.dialogMessage}>
-          This will end the game immediately and your opponent will win. This action cannot be undone.
-        </div>
-        <div style={styles.dialogButtons}>
-          <button
-            onClick={onCancel}
-            style={styles.dialogCancelButton}
-            onMouseEnter={(e) => {
-              e.target.style.backgroundColor = "#757575"
-              e.target.style.transform = "translateY(-1px)"
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.backgroundColor = "#9e9e9e"
-              e.target.style.transform = "translateY(0)"
-            }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={onConfirm}
-            style={styles.dialogConfirmButton}
-            onMouseEnter={(e) => {
-              e.target.style.backgroundColor = "#d32f2f"
-              e.target.style.transform = "translateY(-1px)"
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.backgroundColor = "#f44336"
-              e.target.style.transform = "translateY(0)"
-            }}
-          >
-            Forfeit Game
-          </button>
-        </div>
-      </div>
-    </div>
-  )
 
   const displayBoard = createDisplayBoard()
   const opponentName = roomInfo?.hostPlayer === username ? roomInfo?.guestPlayer : roomInfo?.hostPlayer
+  const opponentColor = playerColor === "w" ? "b" : "w" // 'b' for black, 'w' for white
+  const myColor = playerColor // 'w' or 'b'
+
+  const getWinnerForModal = () => {
+    if (roomInfo?.forfeited) {
+      return roomInfo.forfeitedBy === playerColor ? "You" : "Opponent" // Forfeit is always a loss for the forfeiter
+    }
+    if (roomInfo?.timeoutWinner) {
+      return roomInfo.winner === (playerColor === "w" ? "White" : "Black") ? "You" : "Opponent"
+    }
+    if (gameState.winner === "Draw") return "Draw"
+    if (gameState.winner === (playerColor === "w" ? "White" : "Black")) return "You"
+    return "Opponent"
+  }
+
+  const getWasAbortedForModal = () => {
+    return roomInfo?.forfeited || false
+  }
+
+  const getIfTimeoutForModal = () => {
+    return roomInfo?.timeoutWinner || false
+  }
+
+  // Wait for game to start
+  if (!isGameStarted) {
+    return (
+      <>
+        <style>{customStyles}</style>
+        <div className="waitingContainer">
+          <div className="backgroundPattern">
+            {[...Array(8)].map((_, i) => (
+              <div
+                key={i}
+                className="floating-piece"
+                style={{
+                  top: `${10 + i * 12}vh`,
+                  left: `${5 + (i % 2) * 85}vw`,
+                  animationDelay: `${i * 0.6}s`,
+                }}
+              >
+                {["♔", "♛", "♜", "♝", "♞", "♟", "♕", "♖"][i]}
+              </div>
+            ))}
+          </div>
+          <div className="waitingCard">
+            <div className="waitingAnimation">
+              <div className="spinnerRing">
+                <div className="spinnerCore"></div>
+              </div>
+            </div>
+            <h2 className="waitingTitle">⚔️ Preparing Chess Arena</h2>
+            <div className="waitingDetails">
+              <div className="waitingInfo">
+                <span className="waitingLabel">Room ID:</span>
+                <span className="waitingValue">{roomId}</span>
+              </div>
+              <div className="waitingInfo">
+                <span className="waitingLabel">Playing as:</span>
+                <span className="waitingValue">{playerColor === "w" ? "⚪ White" : "⚫ Black"}</span>
+              </div>
+              <div className="waitingInfo">
+                <span className="waitingLabel">Time Control:</span>
+                <span className="waitingValue">{selectedTime} minutes</span>
+              </div>
+            </div>
+            <div className="waitingText">Waiting for opponent to join the battle...</div>
+            <button onClick={() => navigate("/multiplayer-lobby?username=" + encodeURIComponent(username))} className="waitingLeaveButton">
+              🚪 Leave Room
+            </button>
+          </div>
+        </div>
+      </>
+    )
+  }
 
   return (
     <>
-      <div className="chess-game-wrapper">
-        <div className="game-layout">
-          {/* Left Panel - Board */}
-          <div className="board-section">
-            {/* Top Player Info */}
-            <div style={styles.playerSection}>
-              <div style={styles.playerInfo}>
-                <div style={styles.playerAvatar}>
-                  <span style={styles.playerIcon}>{playerColor === "w" ? "⚫" : "⚪"}</span>
-                </div>
-                
-                <div style={styles.playerRightSection}>
-                  <div style={styles.playerDetails}>
-                    <div style={styles.playerName}>
-                      {opponentName || (playerColor === "w" ? "Black Player" : "White Player")}
-                    </div>
-                    <div style={styles.connectionStatus}>
-                      <span
-                        style={{
-                          ...styles.connectionDot,
-                          backgroundColor: opponentConnected ? "#4caf50" : "#f44336",
-                        }}
-                      ></span>
-                      {opponentConnected ? "Online" : "Offline"}
-                    </div>
-                  </div>
-                  
-                </div>
-                <div style={styles.capturedFullWidth}>
-                  {renderCapturedPieces(playerColor === "w" ? "white" : "black", "middle")}
-                </div>
-                <div style={styles.timerContainer}>
-                    <Timer label="" time={playerColor === "w" ? timeLeft.black : timeLeft.white} />
-                  </div>
-              </div>
+      <style>{customStyles}</style>
+      <div className="main-layout">
+        {/* Animated background elements */}
+        <div className="background-elements">
+          {[...Array(12)].map((_, i) => (
+            <div
+              key={i}
+              className="floating-piece"
+              style={{
+                top: `${5 + i * 8}%`,
+                left: `${2 + (i % 3) * 45}%`,
+                animationDelay: `${i * 0.8}s`,
+              }}
+            >
+              {["♔", "♛", "♜", "♝", "♞", "♟", "♚", "♕", "♖", "♗", "♘", "♙"][i]}
             </div>
+          ))}
+        </div>
 
-            <div className="middle" style={styles.middle}>
-              {/* Chess Board */}
-              <div className="board-container" style={styles.enhancedBoard}>
-                {displayBoard.map(({ piece, displayRow, displayCol }) => renderSquare(piece, displayRow, displayCol))}
+        {gameState.isGameOver && (
+          <GameOverModal
+            winner={getWinnerForModal()}
+            wasAborted={getWasAbortedForModal()}
+            ifTimeout={getIfTimeoutForModal()}
+            onPlayAgain={handlePlayAgain}
+            onClose={() => navigate("/")} // Navigate home on close
+          />
+        )}
+
+        {showForfeitConfirm && (
+          <div className="dialogOverlay">
+            <div className="dialogBox">
+              <div className="dialogIcon">🏳️</div>
+              <div className="dialogTitle">Forfeit Game?</div>
+              <div className="dialogMessage">
+                This will end the game immediately and your opponent will win. This action cannot be undone.
               </div>
-
-              {/* Right Panel - Controls */}
-              <div className="controls-section" style={styles.controlsSection}>
-                {/* Move History */}
-                <div style={styles.historySection}>
-                  <div style={styles.sectionHeader}>
-                    <h3 style={styles.sectionTitle}>📜 Move History</h3>
-                  </div>
-                  <MoveHistory moveHistory={gameState.history} />
-                </div>
-
-                {/* Forfeit Button */}
-                {!gameState.isGameOver && (
-                  <button
-                    style={{
-                      ...styles.forfeitButton,
-                      opacity: isForfeiting ? 0.7 : 1,
-                      cursor: isForfeiting ? "not-allowed" : "pointer",
-                    }}
-                    onClick={() => setShowConfirmDialog("forfeit")}
-                    disabled={isForfeiting}
-                    onMouseEnter={(e) => {
-                      if (!isForfeiting) {
-                        e.target.style.transform = "translateY(-2px) scale(1.02)"
-                        e.target.style.boxShadow = "0 8px 25px rgba(244, 67, 54, 0.4)"
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isForfeiting) {
-                        e.target.style.transform = "translateY(0) scale(1)"
-                        e.target.style.boxShadow = "0 4px 15px rgba(244, 67, 54, 0.3)"
-                      }
-                    }}
-                  >
-                    <span style={styles.buttonIcon}>{isForfeiting ? "⏳" : "🏳️"}</span>
-                    <div style={styles.buttonTextContainer}>
-                      <span style={styles.buttonTitle}>{isForfeiting ? "Forfeiting..." : "Forfeit Game"}</span>
-                    </div>
-                  </button>
-                )}
-
-                {/* Game Over Section */}
-                {gameState.isGameOver && (
-                  <div style={styles.gameOverSection}>
-                    <div style={styles.gameOverHeader}>
-                      <div style={styles.gameOverIcon}>
-                        {roomInfo?.forfeited
-                          ? "🏳️"
-                          : gameState.winner === "Draw"
-                            ? "🤝"
-                            : (gameState.winner === "White" && playerColor === "w") ||
-                                (gameState.winner === "Black" && playerColor === "b")
-                              ? "🏆"
-                              : "💔"}
-                      </div>
-                      <div style={styles.gameOverTitle}>
-                        {roomInfo?.forfeited
-                          ? "Game Forfeited"
-                          : gameState.winner === "Draw"
-                            ? "Draw!"
-                            : (gameState.winner === "White" && playerColor === "w") ||
-                                (gameState.winner === "Black" && playerColor === "b")
-                              ? "Victory!"
-                              : "Defeat"}
-                      </div>
-                      <div style={styles.gameOverSubtitle}>{getGameStatusMessage()}</div>
-                    </div>
-                    <div style={styles.gameOverActions}>
-                      <button
-                        style={styles.playAgainButton}
-                        onClick={handleResetGame}
-                        onMouseEnter={(e) => {
-                          e.target.style.transform = "translateY(-3px) scale(1.02)"
-                          e.target.style.boxShadow = "0 10px 30px rgba(76, 175, 80, 0.4)"
-                        }}
-                        onMouseLeave={(e) => {
-                          e.target.style.transform = "translateY(0) scale(1)"
-                          e.target.style.boxShadow = "0 6px 20px rgba(76, 175, 80, 0.3)"
-                        }}
-                      >
-                        <span style={styles.buttonIcon}>🔄</span>
-                        <div style={styles.buttonTextContainer}>
-                          <span style={styles.buttonTitle}>Rematch</span>
-                          <span style={styles.buttonSubtitle}>Start a new battle</span>
-                        </div>
-                      </button>
-                      <button
-                        style={styles.leaveButton}
-                        onClick={handleLeaveGame}
-                        onMouseEnter={(e) => {
-                          e.target.style.transform = "translateY(-3px) scale(1.02)"
-                          e.target.style.boxShadow = "0 10px 30px rgba(158, 158, 158, 0.4)"
-                        }}
-                        onMouseLeave={(e) => {
-                          e.target.style.transform = "translateY(0) scale(1)"
-                          e.target.style.boxShadow = "0 6px 20px rgba(158, 158, 158, 0.3)"
-                        }}
-                      >
-                        <span style={styles.buttonIcon}>🏠</span>
-                        <div style={styles.buttonTextContainer}>
-                          <span style={styles.buttonTitle}>Leave Game</span>
-                          <span style={styles.buttonSubtitle}>Return to main menu</span>
-                        </div>
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Bottom Player Info */}
-            <div style={styles.playerSection}>
-              <div style={styles.playerInfo}>
-                <div style={styles.playerAvatar}>
-                  <span style={styles.playerIcon}>{playerColor === "w" ? "⚪" : "⚫"}</span>
-                </div>
-                
-                <div style={styles.playerRightSection}>
-                  <div style={styles.playerDetails}>
-                    <div style={styles.playerName}>{username}</div>
-                    <div style={styles.connectionStatus}>
-                      <span
-                        style={{
-                          ...styles.connectionDot,
-                          backgroundColor: "#4caf50",
-                        }}
-                      ></span>
-                      Online
-                    </div>
-                  </div>
-                  
-                </div>
-                <div style={styles.capturedFullWidth}>
-                  {renderCapturedPieces(playerColor === "w" ? "black" : "white", "middle")}
-                </div>
-                <div style={styles.timerContainer}>
-                    <Timer label="" time={playerColor === "w" ? timeLeft.white : timeLeft.black} />
-                  </div>
+              <div className="dialogButtons">
+                <button 
+                  onClick={() => setShowForfeitConfirm(false)} 
+                  className="dialogCancelButton"
+                  disabled={isForfeiting}
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleForfeitConfirm} 
+                  className="dialogConfirmButton"
+                  disabled={isForfeiting}
+                >
+                  {isForfeiting ? "Forfeiting..." : "Forfeit Game"}
+                </button>
               </div>
             </div>
           </div>
+        )}
+
+        <div className="game-content-area">
+          <div className="board-section">
+            {/* Top Player Card - Opponent */}
+            <div className="player-card-container top">
+              <PlayerCard
+                name={opponentName || "Opponent"}
+                isBot={false} // It's a human opponent
+                isTop={true}
+                capturedPieces={gameState.capturedPieces[playerColor === "w" ? "white" : "black"]}
+              />
+              <Timer
+                time={opponentColor === "w" ? timeLeft.white : timeLeft.black}
+                isActive={gameState.turn === opponentColor && !gameState.isGameOver}
+              />
+              {/* Connection status indicator */}
+              <div style={{
+                position: 'absolute',
+                top: '0.5rem',
+                right: '0.5rem',
+                fontSize: '0.7rem',
+                color: opponentConnected ? '#4caf50' : '#f44336',
+                fontWeight: '600'
+              }}>
+              </div>
+            </div>
+
+            {/* Chess Board */}
+            <div className="board-container">
+              {displayBoard.map(({ piece, displayRow, displayCol }) => renderSquare(piece, displayRow, displayCol))}
+              
+              
+              {/* Game status indicator */}
+              {gameState.isCheck && !gameState.isCheckmate && (
+                <div style={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  background: 'rgba(255, 87, 34, 0.9)',
+                  color: 'white',
+                  padding: '0.5rem 1rem',
+                  borderRadius: '1rem',
+                  fontSize: '1rem',
+                  fontWeight: '700',
+                  zIndex: 10,
+                  textShadow: '0 0 10px rgba(255, 87, 34, 0.5)'
+                }}>
+                  ⚡ CHECK!
+                </div>
+              )}
+              {gameState.isCheckmate && (
+                <div style={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  background: 'rgba(244, 67, 54, 0.9)',
+                  color: 'white',
+                  padding: '0.5rem 1rem',
+                  borderRadius: '1rem',
+                  fontSize: '1rem',
+                  fontWeight: '700',
+                  zIndex: 10,
+                  textShadow: '0 0 10px rgba(244, 67, 54, 0.5)'
+                }}>
+                  💀 CHECKMATE!
+                </div>
+              )}
+            </div>
+
+            {/* Bottom Player Card - You */}
+            <div className="player-card-container bottom">
+              <PlayerCard
+                name={username}
+                isBot={false}
+                isTop={false}
+                capturedPieces={gameState.capturedPieces[playerColor === "w" ? "black" : "white"]}
+              />
+              <Timer
+                time={myColor === "w" ? timeLeft.white : timeLeft.black}
+                isActive={gameState.turn === myColor && !gameState.isGameOver}
+              />
+            </div>
+          </div>
+
+          <div className="right-panel-wrapper">
+            <MoveHistory
+              moveHistory={gameState.history}
+              onResign={() => setShowForfeitConfirm(true)}
+              onNewGame={handlePlayAgain} // This will trigger resetGame
+              playerName={username}
+              opponentName={opponentName || "Opponent"}
+              playerRating={1200} // Placeholder, can be fetched from user data
+              opponentRating={1200} // Placeholder
+              timeControl={selectedTime}
+              gameType="Multiplayer"
+            />
+          </div>
         </div>
       </div>
-
-      {/* Confirmation Dialog */}
-      {showConfirmDialog && (
-        <ConfirmDialog
-          action={showConfirmDialog}
-          onConfirm={() => {
-            setShowConfirmDialog(null)
-            handleForfeitGame()
-          }}
-          onCancel={() => setShowConfirmDialog(null)}
-        />
-      )}
     </>
   )
-}
-
-const styles = {
-  errorContainer: {
-    minHeight: "100vh",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-    color: "white",
-    gap: "2vh",
-    padding: "2vh",
-    textAlign: "center",
-  },
-  errorIcon: {
-    fontSize: "clamp(3rem, 8vw, 6rem)",
-    marginBottom: "1vh",
-  },
-  errorTitle: {
-    fontSize: "clamp(1.5rem, 4vw, 2.5rem)",
-    fontWeight: "700",
-    marginBottom: "1vh",
-  },
-  errorMessage: {
-    fontSize: "clamp(1rem, 2.5vw, 1.3rem)",
-    opacity: 0.9,
-    marginBottom: "3vh",
-    maxWidth: "600px",
-    lineHeight: 1.5,
-  },
-  errorButton: {
-    padding: "1.5vh 3vw",
-    fontSize: "clamp(1rem, 2.5vw, 1.2rem)",
-    fontWeight: "600",
-    borderRadius: "1.5vh",
-    border: "none",
-    cursor: "pointer",
-    backgroundColor: "#f44336",
-    color: "white",
-    boxShadow: "0 1vh 2vh rgba(244, 67, 54, 0.3)",
-    transition: "all 0.3s ease",
-  },
-  waitingContainer: {
-    minHeight: "100vh",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-    position: "relative",
-    overflow: "hidden",
-    padding: "2vh",
-  },
-  backgroundPattern: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    pointerEvents: "none",
-    zIndex: 0,
-  },
-  floatingPiece: {
-    position: "absolute",
-    fontSize: "clamp(2rem, 4vw, 3rem)",
-    opacity: 0.1,
-    color: "white",
-    animation: "float 8s ease-in-out infinite",
-  },
-  waitingCard: {
-    background: "rgba(255, 255, 255, 0.95)",
-    backdropFilter: "blur(20px)",
-    borderRadius: "3vh",
-    padding: "4vh 3vw",
-    boxShadow: "0 3vh 6vh rgba(0, 0, 0, 0.3)",
-    maxWidth: "90vw",
-    width: "500px",
-    textAlign: "center",
-    border: "1px solid rgba(255, 255, 255, 0.3)",
-    position: "relative",
-    zIndex: 1,
-  },
-  waitingAnimation: {
-    display: "flex",
-    justifyContent: "center",
-    marginBottom: "3vh",
-  },
-  spinnerRing: {
-    width: "80px",
-    height: "80px",
-    border: "4px solid rgba(102, 126, 234, 0.3)",
-    borderTop: "4px solid #667eea",
-    borderRadius: "50%",
-    animation: "spin 1s linear infinite",
-    position: "relative",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  spinnerCore: {
-    width: "40px",
-    height: "40px",
-    border: "2px solid rgba(118, 75, 162, 0.5)",
-    borderBottom: "2px solid #764ba2",
-    borderRadius: "50%",
-    animation: "spin 2s linear infinite reverse",
-  },
-  waitingTitle: {
-    fontSize: "clamp(1.5rem, 4vw, 2rem)",
-    fontWeight: "700",
-    color: "#333",
-    marginBottom: "2vh",
-    margin: 0,
-  },
-  waitingDetails: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "1vh",
-    marginBottom: "3vh",
-  },
-  waitingInfo: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "1vh 2vw",
-    background: "rgba(102, 126, 234, 0.1)",
-    borderRadius: "1vh",
-    border: "1px solid rgba(102, 126, 234, 0.2)",
-  },
-  waitingLabel: {
-    fontSize: "clamp(0.9rem, 2.2vw, 1.1rem)",
-    color: "#666",
-    fontWeight: "600",
-  },
-  middle: {
-    display: "flex",
-    alignItems: "center",
-    gap: "3rem",
-    width: "100%",
-    justifyContent: "center",
-  },
-  waitingValue: {
-    fontSize: "clamp(0.9rem, 2.2vw, 1.1rem)",
-    color: "#333",
-    fontWeight: "700",
-    fontFamily: "monospace",
-  },
-  waitingText: {
-    fontSize: "clamp(1rem, 2.5vw, 1.2rem)",
-    color: "#666",
-    marginBottom: "3vh",
-    lineHeight: 1.4,
-  },
-  waitingLeaveButton: {
-    padding: "1.5vh 3vw",
-    background: "linear-gradient(135deg, #f44336 0%, #d32f2f 100%)",
-    color: "white",
-    border: "none",
-    borderRadius: "1.5vh",
-    fontSize: "clamp(1rem, 2.5vw, 1.2rem)",
-    fontWeight: "600",
-    cursor: "pointer",
-    transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-    boxShadow: "0 1vh 2vh rgba(244, 67, 54, 0.3)",
-  },
-  enhancedBoard: {
-    boxShadow: "0 0 40px rgba(0, 0, 0, 0.4), inset 0 0 0 3px rgba(102, 126, 234, 0.3)",
-    borderRadius: "1rem",
-    overflow: "hidden",
-  },
-  // Updated player section styles
-  playerSection: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: "0.5rem",
-    margin: "0.5rem 0",
-    padding: "1rem",
-    background: "rgba(255, 255, 255, 0.1)",
-    borderRadius: "1rem",
-    backdropFilter: "blur(10px)",
-    border: "1px solid rgba(255, 255, 255, 0.2)",
-    width: "65%",
-  },
-  playerInfo: {
-    display: "flex",
-    alignItems: "center",
-    gap: "1rem",
-    width: "100%",
-  },
-  // New style for full width captured pieces
-  capturedFullWidth: {
-    background: "linear-gradient(120deg, #188cd4ff 0%, #2982c2ff 50%, #9ac3ceff 100%)",
-    flex: 1,
-  },
-  // New style for right section with name and timer
-  playerRightSection: {
-    display: "flex",
-    alignItems: "center",
-    gap: "1rem",
-  },
-  playerAvatar: {
-    width: "60px",
-    height: "60px",
-    borderRadius: "50%",
-    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    boxShadow: "0 4px 15px rgba(102, 126, 234, 0.4)",
-    border: "3px solid rgba(255, 255, 255, 0.3)",
-    flexShrink: 0,
-  },
-  playerIcon: {
-    fontSize: "28px",
-    color: "white",
-  },
-  playerDetails: {
-    textAlign: "right",
-  },
-  playerName: {
-    fontSize: "clamp(1.1rem, 2.8vw, 1.4rem)",
-    fontWeight: "700",
-    color: "#333",
-    marginBottom: "5px",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  connectionStatus: {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-    fontSize: "clamp(0.8rem, 2vw, 1rem)",
-    color: "#666",
-    fontWeight: "600",
-  },
-  connectionDot: {
-    width: "8px",
-    height: "8px",
-    borderRadius: "50%",
-    animation: "pulse 2s ease-in-out infinite",
-  },
-  // New style for captured pieces in middle
-  capturedMiddleContainer: {
-    flex: 1,
-    maxWidth: "300px",
-    minWidth: "200px",
-  },
-  timerContainer: {
-    flex: "0 0 auto",
-    minWidth: "80px",
-  },
-  controlsSection: {
-    background: "rgba(255, 255, 255, 0.05)",
-    borderRadius: "1rem",
-    padding: "1.5rem",
-    backdropFilter: "blur(10px)",
-    border: "1px solid rgba(255, 255, 255, 0.1)",
-    display: "flex",
-    flexDirection: "column",
-    gap: "1.5rem",
-    width: "15%",
-  },
-  // Simple captured pieces container
-  capturedPiecesContainer: {
-    background: "rgba(255, 255, 255, 0.9)",
-    border: "1px solid #ddd",
-    borderRadius: "8px",
-    padding: "8px",
-    minHeight: "40px",
-    display: "flex",
-    alignItems: "center",
-  },
-  capturedPiecesList: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: "4px",
-    alignItems: "center",
-    width: "100%",
-  },
-  capturedPiece: {
-    fontSize: "18px",
-  },
-  capturedValue: {
-    fontSize: "12px",
-    fontWeight: "bold",
-    color: "#4caf50",
-    background: "#e8f5e8",
-    padding: "2px 6px",
-    borderRadius: "4px",
-    marginLeft: "8px",
-  },
-  noCapturedPieces: {
-    fontSize: "14px",
-    color: "#999",
-    fontStyle: "italic",
-  },
-  historySection: {
-    background: "rgba(255, 255, 255, 0.95)",
-    borderRadius: "1rem",
-    padding: "1rem",
-    border: "1px solid rgba(102, 126, 234, 0.2)",
-    boxShadow: "0 4px 15px rgba(102, 126, 234, 0.1)",
-  },
-  sectionHeader: {
-    marginBottom: "1rem",
-  },
-  sectionTitle: {
-    fontSize: "clamp(1rem, 2.5vw, 1.2rem)",
-    fontWeight: "700",
-    color: "#333",
-    margin: 0,
-    textTransform: "uppercase",
-    letterSpacing: "0.05em",
-  },
-  forfeitButton: {
-    background: "linear-gradient(135deg, #f44336 0%, #d32f2f 100%)",
-    border: "none",
-    borderRadius: "1rem",
-    padding: "1rem",
-    color: "white",
-    cursor: "pointer",
-    transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-    boxShadow: "0 4px 15px rgba(244, 67, 54, 0.3)",
-    display: "flex",
-    alignItems: "center",
-    gap: "1rem",
-    fontSize: "1rem",
-    fontWeight: "600",
-    width: "100%",
-  },
-  gameOverSection: {
-    background: "rgba(255, 255, 255, 0.95)",
-    borderRadius: "1rem",
-    padding: "2rem",
-    border: "1px solid rgba(102, 126, 234, 0.2)",
-    boxShadow: "0 4px 15px rgba(102, 126, 234, 0.1)",
-    textAlign: "center",
-  },
-  gameOverHeader: {
-    marginBottom: "2rem",
-  },
-  gameOverIcon: {
-    fontSize: "clamp(3rem, 8vw, 5rem)",
-    marginBottom: "1rem",
-  },
-  gameOverTitle: {
-    fontSize: "clamp(1.5rem, 4vw, 2rem)",
-    fontWeight: "700",
-    color: "#333",
-    marginBottom: "0.5rem",
-  },
-  gameOverSubtitle: {
-    fontSize: "clamp(1rem, 2.5vw, 1.2rem)",
-    color: "#666",
-    fontWeight: "500",
-  },
-  gameOverActions: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "1rem",
-  },
-  playAgainButton: {
-    background: "linear-gradient(135deg, #4caf50 0%, #45a049 100%)",
-    border: "none",
-    borderRadius: "1rem",
-    padding: "1rem",
-    color: "white",
-    cursor: "pointer",
-    transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-    boxShadow: "0 6px 20px rgba(76, 175, 80, 0.3)",
-    display: "flex",
-    alignItems: "center",
-    gap: "1rem",
-    fontSize: "1rem",
-    fontWeight: "600",
-  },
-  leaveButton: {
-    background: "linear-gradient(135deg, #9e9e9e 0%, #757575 100%)",
-    border: "none",
-    borderRadius: "1rem",
-    padding: "1rem",
-    color: "white",
-    cursor: "pointer",
-    transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-    boxShadow: "0 6px 20px rgba(158, 158, 158, 0.3)",
-    display: "flex",
-    alignItems: "center",
-    gap: "1rem",
-    fontSize: "1rem",
-    fontWeight: "600",
-  },
-  buttonIcon: {
-    fontSize: "clamp(1.2rem, 3vw, 1.5rem)",
-    minWidth: "40px",
-    textAlign: "center",
-  },
-  buttonTextContainer: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "flex-start",
-    gap: "0.2rem",
-  },
-  buttonTitle: {
-    fontSize: "clamp(1rem, 2.5vw, 1.2rem)",
-    fontWeight: "700",
-    lineHeight: 1,
-  },
-  buttonSubtitle: {
-    fontSize: "clamp(0.8rem, 2vw, 0.9rem)",
-    opacity: 0.9,
-    fontWeight: "400",
-    lineHeight: 1,
-  },
-  dialogOverlay: {
-    position: "fixed",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 1000,
-    backdropFilter: "blur(8px)",
-  },
-  dialogBox: {
-    background: "rgba(255, 255, 255, 0.98)",
-    borderRadius: "2rem",
-    padding: "3rem 2rem",
-    maxWidth: "90vw",
-    width: "400px",
-    textAlign: "center",
-    border: "1px solid rgba(102, 126, 234, 0.3)",
-    boxShadow: "0 3rem 6rem rgba(0, 0, 0, 0.4)",
-    animation: "dialogSlideIn 0.3s ease-out",
-  },
-  dialogIcon: {
-    fontSize: "clamp(3rem, 8vw, 4rem)",
-    marginBottom: "2rem",
-  },
-  dialogTitle: {
-    fontSize: "clamp(1.3rem, 3.5vw, 1.8rem)",
-    fontWeight: "700",
-    color: "#333",
-    marginBottom: "1.5rem",
-  },
-  dialogMessage: {
-    fontSize: "clamp(1rem, 2.5vw, 1.1rem)",
-    color: "#666",
-    lineHeight: 1.5,
-    marginBottom: "3rem",
-  },
-  dialogButtons: {
-    display: "flex",
-    gap: "1rem",
-    justifyContent: "center",
-  },
-  dialogCancelButton: {
-    padding: "1rem 2rem",
-    background: "#9e9e9e",
-    color: "white",
-    border: "none",
-    borderRadius: "0.5rem",
-    fontSize: "clamp(0.9rem, 2.2vw, 1rem)",
-    fontWeight: "600",
-    cursor: "pointer",
-    transition: "all 0.3s ease",
-    minWidth: "120px",
-  },
-  dialogConfirmButton: {
-    padding: "1rem 2rem",
-    background: "#f44336",
-    color: "white",
-    border: "none",
-    borderRadius: "0.5rem",
-    fontSize: "clamp(0.9rem, 2.2vw, 1rem)",
-    fontWeight: "600",
-    cursor: "pointer",
-    transition: "all 0.3s ease",
-    minWidth: "120px",
-  },
-}
-
-// Enhanced CSS animations
-const styleSheet = document.createElement("style")
-styleSheet.type = "text/css"
-styleSheet.innerText = `
-  .chess-game-wrapper {
-    min-height: 100vh;
-    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-    padding: 0;
-  }
-  
-  .game-layout {
-    display: flex;
-    gap: 2rem;
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 0 2rem 2rem;
-  }
-  
-  .board-section {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-  
-  .controls-section {
-    width: 350px;
-    min-width: 350px;
-  }
-  
-  @keyframes float {
-    0%, 100% { transform: translateY(0) rotate(0deg); }
-    25% { transform: translateY(-2vh) rotate(5deg); }
-    50% { transform: translateY(-1vh) rotate(-3deg); }
-    75% { transform: translateY(-3vh) rotate(8deg); }
-  }
-  
-  @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
-  
-  @keyframes pulse {
-    0%, 100% { transform: scale(1); opacity: 1; }
-    50% { transform: scale(1.05); opacity: 0.8; }
-  }
-  
-  @keyframes dialogSlideIn {
-    0% {
-       opacity: 0;
-       transform: translateY(-50px) scale(0.9);
-     }
-    100% {
-       opacity: 1;
-       transform: translateY(0) scale(1);
-     }
-  }
-  
-  /* Enhanced board styling */
-  .board-container {
-    transition: all 0.3s ease;
-  }
-  
-  .board-container .square {
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-  
-  .board-container .square:hover {
-    transform: scale(1.02);
-    z-index: 10;
-  }
-  
-  .board-container .square.selected {
-    animation: selectedPulse 1.5s ease-in-out infinite;
-  }
-  
-  @keyframes selectedPulse {
-    0%, 100% {
-       outline: 3px solid #667eea;
-      box-shadow: 0 0 15px rgba(102, 126, 234, 0.4);
-    }
-    50% {
-       outline: 4px solid #764ba2;
-      box-shadow: 0 0 25px rgba(118, 75, 162, 0.6);
-    }
-  }
-  
-  .board-container .square.last-move {
-    animation: lastMovePulse 2s ease-in-out infinite;
-  }
-  
-  @keyframes lastMovePulse {
-    0%, 100% {
-       background-color: rgba(76, 175, 80, 0.1) !important;
-      box-shadow: inset 0 0 0 2px rgba(76, 175, 80, 0.3);
-    }
-    50% {
-       background-color: rgba(76, 175, 80, 0.2) !important;
-      box-shadow: inset 0 0 0 3px rgba(76, 175, 80, 0.5);
-    }
-  }
-  
-  /* Enhanced move history */
-  .move-history {
-    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%) !important;
-    border: 1px solid rgba(102, 126, 234, 0.2) !important;
-    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.1) !important;
-    border-radius: 0.5rem !important;
-    max-height: 300px !important;
-    overflow-y: auto !important;
-  }
-  
-  .move-history div:hover {
-    background-color: rgba(102, 126, 234, 0.1) !important;
-    transform: translateX(3px);
-  }
-  
-  /* Captured pieces hover effects */
-  .capturedPiece:hover {
-    transform: scale(1.3) !important;
-    opacity: 1 !important;
-  }
-  
-  /* Responsive design */
-  @media (max-width: 1200px) {
-    .game-layout {
-      flex-direction: column;
-      gap: 1rem;
-    }
-    
-    .controls-section {
-      width: 100%;
-      min-width: auto;
-    }
-    
-    .board-container {
-      width: 90vw;
-      max-width: 600px;
-    }
-  }
-  
-  @media (max-width: 768px) {
-    .game-layout {
-      padding: 0 1rem 1rem;
-    }
-    
-    .playerSection {
-      padding: 0.75rem !important;
-      margin: 0.25rem 0 !important;
-    }
-    
-    .playerInfo {
-      flex-wrap: wrap;
-      gap: 0.75rem !important;
-    }
-    
-    .playerAvatar {
-      width: 45px !important;
-      height: 45px !important;
-    }
-    
-    .playerIcon {
-      font-size: 20px !important;
-    }
-    
-    .capturedFullWidth {
-      order: 3;
-      width: 100%;
-    }
-    
-    .playerRightSection {
-      order: 2;
-      width: 100%;
-      justify-content: space-between;
-    }
-    
-    .playerDetails {
-      text-align: left !important;
-    }
-    
-    .controlsSection {
-      padding: 1rem;
-    }
-    
-    .capturedPiecesContainer {
-      padding: 0.75rem;
-    }
-    
-    .historySection {
-      padding: 0.75rem;
-    }
-    
-    .gameOverSection {
-      padding: 1.5rem;
-    }
-    
-    .dialogBox {
-      margin: 1rem;
-      width: calc(100vw - 2rem);
-      max-width: 400px;
-      padding: 2rem 1.5rem;
-    }
-    
-    .dialogButtons {
-      flex-direction: column;
-      gap: 1rem;
-    }
-    
-    .dialogCancelButton,
-    .dialogConfirmButton {
-      width: 100%;
-    }
-  }
-  
-  @media (max-width: 480px) {
-    .board-container {
-      width: 95vw;
-      max-width: 400px;
-    }
-    
-    .playerInfo {
-      flex-direction: column;
-      align-items: center;
-      text-align: center;
-      gap: 0.5rem !important;
-    }
-    
-    .playerDetails {
-      min-width: auto;
-      text-align: center;
-    }
-    
-    .capturedFullWidth {
-      order: 2;
-      width: 100%;
-      margin: 0.25rem 0;
-    }
-    
-    .playerRightSection {
-      order: 3;
-      width: 100%;
-      justify-content: center;
-    }
-    
-    .capturedPiecesContainer {
-      padding: 0.5rem;
-      min-height: 50px;
-    }
-    
-    .capturedPiece {
-      font-size: 16px !important;
-    }
-    
-    .capturedValue {
-      font-size: 0.7rem !important;
-      padding: 1px 6px !important;
-    }
-    
-    .buttonTextContainer {
-      align-items: center;
-      text-align: center;
-    }
-    
-    .capturedPiecesHeader {
-      flex-direction: column;
-      gap: 0.5rem;
-      text-align: center;
-    }
-    
-    .forfeitButton {
-      padding: 0.75rem;
-    }
-    
-    .playAgainButton,
-    .leaveButton {
-      padding: 0.75rem;
-    }
-  }
-`
-
-if (!document.querySelector("#enhanced-chess-styles")) {
-  styleSheet.id = "enhanced-chess-styles"
-  document.head.appendChild(styleSheet)
 }
 
 export default NewMultiplayerGame

@@ -26,7 +26,7 @@ const useChessGame = () => {
   const [wasAborted, setWasAborted] = useState(false)
   const [ifTimeout, setifTimeout] = useState(false)
   const [lastMoveSquares, setLastMoveSquares] = useState([])
-  const [capturedPieces, setCapturedPieces] = useState({ white: [], black: [] }) // Added state for captured pieces
+  const [capturedPieces, setCapturedPieces] = useState({ white: [], black: [] })
 
   const intervalRef = useRef(null)
   const gameEndedRef = useRef(false)
@@ -39,7 +39,6 @@ const useChessGame = () => {
   const inCheck = game.inCheck()
   const displayBoard = playAs === "w" ? game.board() : [...game.board()].reverse()
 
-  // Function to calculate captured pieces based on current board
   const calculateCapturedPieces = useCallback((currentBoard) => {
     const initialPieceCounts = {
       w: { p: 8, n: 2, b: 2, r: 2, q: 1, k: 1 },
@@ -59,27 +58,27 @@ const useChessGame = () => {
       })
     })
 
-    const captured = { white: [], black: [] } // Pieces captured by white, pieces captured by black
+    const captured = { white: [], black: [] }
 
-    // Pieces captured by White (black pieces missing from board)
+    // White captured pieces = black pieces that are missing (opponent pieces I captured)
     for (const type in initialPieceCounts.b) {
       const missing = initialPieceCounts.b[type] - currentPieceCounts.b[type]
       for (let i = 0; i < missing; i++) {
-        captured.white.push(type)
+        captured.white.push(type) // These are black pieces captured by white
       }
     }
 
-    // Pieces captured by Black (white pieces missing from board)
+    // Black captured pieces = white pieces that are missing (opponent pieces I captured)
     for (const type in initialPieceCounts.w) {
       const missing = initialPieceCounts.w[type] - currentPieceCounts.w[type]
       for (let i = 0; i < missing; i++) {
-        captured.black.push(type)
+        captured.black.push(type) // These are white pieces captured by black
       }
     }
+
     return captured
   }, [])
 
-  // Update captured pieces whenever the game FEN changes
   useEffect(() => {
     setCapturedPieces(calculateCapturedPieces(game.board()))
   }, [game.fen(), calculateCapturedPieces])
@@ -146,7 +145,7 @@ const useChessGame = () => {
     setLastMoveSquares([])
     gameEndedRef.current = false
     scoreCountedRef.current = false
-    setCapturedPieces({ white: [], black: [] }) // Reset captured pieces
+    setCapturedPieces({ white: [], black: [] })
 
     if (playAs === "b") {
       setTimeout(() => makeComputerMove(newGame), 500)
@@ -269,7 +268,7 @@ const useChessGame = () => {
     setLastMoveSquares([])
     gameEndedRef.current = false
     scoreCountedRef.current = false
-    setCapturedPieces({ white: [], black: [] }) // Reset captured pieces
+    setCapturedPieces({ white: [], black: [] })
   }
 
   const abortGame = () => {
@@ -307,7 +306,7 @@ const useChessGame = () => {
     inCheck,
     displayBoard,
     lastMoveSquares,
-    capturedPieces, // Added to return object
+    capturedPieces,
     setPlayAs,
     setSelectedTime,
     startGameWithTime,

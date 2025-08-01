@@ -66,7 +66,7 @@ const useRealtimeChess = (roomId, playerColor, username, timeLimit) => {
       })
     })
 
-    // Calculate captured pieces
+    // Calculate captured pieces - pieces that the opposite color captured
     ;["white", "black"].forEach((color) => {
       const initial = [...initialPieces[color]]
       const current = [...currentPieces[color]]
@@ -76,6 +76,7 @@ const useRealtimeChess = (roomId, playerColor, username, timeLimit) => {
         if (index !== -1) {
           current.splice(index, 1)
         } else {
+          // This piece was captured by the opposite color
           capturedPieces[color === "white" ? "black" : "white"].push(piece)
         }
       })
@@ -110,56 +111,76 @@ const useRealtimeChess = (roomId, playerColor, username, timeLimit) => {
 
       console.log("🔄 Updating from Firebase:", data)
 
-      const game = createGameFromFen(data.gameState || new Chess().fen())
-      gameInstance.current = game
+      try {
+        const game = createGameFromFen(data.gameState || new Chess().fen())
+        gameInstance.current = game
 
-      const analysis = analyzePosition(game)
+        const analysis = analyzePosition(game)
 
-      setGameState({
-        fen: game.fen(),
-        board: game.board(),
-        turn: game.turn(),
-        history: game.history(),
-        isCheck: analysis.isCheck,
-        isCheckmate: analysis.isCheckmate,
-        isStalemate: analysis.isStalemate,
-        isGameOver: game.isGameOver(),
-        winner: data.winner || null,
-        capturedPieces: analysis.capturedPieces,
-      })
+        setGameState({
+          fen: game.fen(),
+          board: game.board(),
+          turn: game.turn(),
+          history: game.history(),
+          isCheck: analysis.isCheck,
+          isCheckmate: analysis.isCheckmate,
+          isStalemate: analysis.isStalemate,
+          isGameOver: game.isGameOver(),
+          winner: data.winner || null,
+          capturedPieces: analysis.capturedPieces,
+        })
 
-      setMoveCount(game.history().length)
-      setRoomInfo(data)
-      setIsGameStarted(data.gameStarted || false)
+        setMoveCount(game.history().length)
+        setRoomInfo(data)
+        setIsGameStarted(data.gameStarted || false)
 
-      // Enhanced turn calculation
-      const currentTurn = game.turn()
-      const isMyActualTurn =
-        currentTurn === playerColor && (data.gameStarted || false) && !game.isGameOver() && !data.gameOver
+        // Enhanced turn calculation with better validation
+        const currentTurn = game.turn()
+        const isMyActualTurn =
+          currentTurn === playerColor && 
+          (data.gameStarted || false) && 
+          !game.isGameOver() && 
+          !data.gameOver &&
+          data.status === "playing"
 
-      console.log(
-        `🎯 Turn Check: current=${currentTurn}, player=${playerColor}, started=${data.gameStarted}, gameOver=${game.isGameOver()}, isMyTurn=${isMyActualTurn}`,
-      )
+        console.log(
+          `🎯 Turn Check: current=${currentTurn}, player=${playerColor}, started=${data.gameStarted}, gameOver=${game.isGameOver()}, status=${data.status}, isMyTurn=${isMyActualTurn}`,
+        )
 
-      setIsMyTurn(isMyActualTurn)
-      setLastMove(data.lastMove || [])
+        setIsMyTurn(isMyActualTurn)
+        setLastMove(data.lastMove || [])
 
-      setTimeLeft({
-        white: data.whiteTime || timeLimit * 60,
-        black: data.blackTime || timeLimit * 60,
-      })
+        setTimeLeft({
+          white: data.whiteTime || timeLimit * 60,
+          black: data.blackTime || timeLimit * 60,
+        })
 
-      // Check opponent connection
-      const now = Date.now()
-      const opponentLastSeen = playerColor === "w" ? data.guestLastSeen : data.hostLastSeen
-      const isOpponentConnected = opponentLastSeen && now - opponentLastSeen?.toMillis?.() < 30000
-      setOpponentConnected(isOpponentConnected)
+        // Check opponent connection with better error handling
+        const now = Date.now()
+        const opponentLastSeen = playerColor === "w" ? data.guestLastSeen : data.hostLastSeen
+        let isOpponentConnected = true
+        
+        if (opponentLastSeen) {
+          try {
+            const lastSeenTime = opponentLastSeen?.toMillis?.() || opponentLastSeen
+            isOpponentConnected = now - lastSeenTime < 30000
+          } catch (err) {
+            console.warn("Error parsing opponent last seen time:", err)
+            isOpponentConnected = true // Default to connected if we can't parse
+          }
+        }
+        
+        setOpponentConnected(isOpponentConnected)
 
-      // Clear selection when it's not my turn
-      if (!isMyActualTurn) {
-        setSelectedSquare(null)
-        setPossibleMoves([])
-        setCaptureSquares([])
+        // Clear selection when it's not my turn
+        if (!isMyActualTurn) {
+          setSelectedSquare(null)
+          setPossibleMoves([])
+          setCaptureSquares([])
+        }
+      } catch (error) {
+        console.error("Error updating game from Firebase:", error)
+        // Don't crash the app, just log the error
       }
     },
     [playerColor, timeLimit, createGameFromFen, analyzePosition],
@@ -195,32 +216,32 @@ const useRealtimeChess = (roomId, playerColor, username, timeLimit) => {
       clearInterval(timerInterval.current)
     }
 
-    if (!isGameStarted || gameState.isGameOver || !isMyTurn) {
+    if (!isGameStarted || gameState.isGameOver) {
       return
     }
 
-    console.log("⏰ Starting timer for", playerColor)
+    console.log("⏰ Starting timer for", gameState.turn)
 
     timerInterval.current = setInterval(async () => {
-      const currentTime = playerColor === "w" ? timeLeft.white : timeLeft.black
-      const newTime = Math.max(0, currentTime - 1)
+      const currentPlayerTime = gameState.turn === "w" ? timeLeft.white : timeLeft.black
+      const newTime = Math.max(0, currentPlayerTime - 1)
 
       // Update local state immediately
       setTimeLeft((prev) => ({
         ...prev,
-        [playerColor === "w" ? "white" : "black"]: newTime,
+        [gameState.turn === "w" ? "white" : "black"]: newTime,
       }))
 
       // Update Firebase every 5 seconds or when time runs out
       if (newTime % 5 === 0 || newTime === 0) {
         try {
           const updateData = {
-            [playerColor === "w" ? "whiteTime" : "blackTime"]: newTime,
+            [gameState.turn === "w" ? "whiteTime" : "blackTime"]: newTime,
           }
 
           if (newTime === 0) {
             updateData.gameOver = true
-            updateData.winner = playerColor === "w" ? "Black" : "White"
+            updateData.winner = gameState.turn === "w" ? "Black" : "White"
             updateData.timeoutWinner = true
             updateData.endReason = "timeout"
           }
@@ -237,7 +258,7 @@ const useRealtimeChess = (roomId, playerColor, username, timeLimit) => {
         clearInterval(timerInterval.current)
       }
     }
-  }, [isGameStarted, gameState.isGameOver, isMyTurn, timeLeft, playerColor])
+  }, [isGameStarted, gameState.isGameOver, gameState.turn, timeLeft])
 
   // Enhanced make move function
   const makeMove = useCallback(
@@ -257,10 +278,26 @@ const useRealtimeChess = (roomId, playerColor, username, timeLimit) => {
         return false
       }
 
+      // Additional validation
+      if (!from || !to || from === to) {
+        console.log("❌ Invalid move coordinates:", { from, to })
+        return false
+      }
+
       isProcessingMove.current = true
 
       try {
         const game = new Chess(gameState.fen)
+        
+        // Validate the move before making it
+        const moves = game.moves({ verbose: true })
+        const isValidMove = moves.some(move => move.from === from && move.to === to)
+        
+        if (!isValidMove) {
+          console.log("❌ Move not in legal moves list:", { from, to })
+          return false
+        }
+
         const move = game.move({ from, to, promotion: "q" })
 
         if (!move) {
@@ -296,7 +333,7 @@ const useRealtimeChess = (roomId, playerColor, username, timeLimit) => {
         }
 
         // Update Firebase with enhanced data
-        await updateDoc(roomRef.current, {
+        const updateData = {
           gameState: game.fen(),
           lastMove: [from, to],
           gameOver,
@@ -305,7 +342,17 @@ const useRealtimeChess = (roomId, playerColor, username, timeLimit) => {
           lastMoveTime: Date.now(),
           lastMoveSan: move.san,
           moveCount: game.history().length,
-        })
+        }
+
+        // Add timeout handling if time is up
+        if (timeLeft[gameState.turn === "w" ? "white" : "black"] <= 0) {
+          updateData.gameOver = true
+          updateData.winner = gameState.turn === "w" ? "Black" : "White"
+          updateData.timeoutWinner = true
+          updateData.endReason = "timeout"
+        }
+
+        await updateDoc(roomRef.current, updateData)
 
         return true
       } catch (error) {
@@ -315,7 +362,7 @@ const useRealtimeChess = (roomId, playerColor, username, timeLimit) => {
         isProcessingMove.current = false
       }
     },
-    [isMyTurn, gameState.fen, gameState.turn, gameState.isGameOver, playerColor],
+    [isMyTurn, gameState.fen, gameState.turn, gameState.isGameOver, playerColor, timeLeft],
   )
 
   // Enhanced square click handler
@@ -387,7 +434,7 @@ const useRealtimeChess = (roomId, playerColor, username, timeLimit) => {
         }
       })
     },
-    [isMyTurn, selectedSquare, playerColor, makeMove, gameState.isGameOver],
+    [isMyTurn, selectedSquare, playerColor, makeMove, gameState.isGameOver, gameState.turn],
   )
 
   // Enhanced forfeit game - opponent wins (FIXED)
@@ -403,6 +450,8 @@ const useRealtimeChess = (roomId, playerColor, username, timeLimit) => {
         forfeitedBy: playerColor,
         endReason: "forfeit",
         lastActivity: Date.now(),
+        gameState: gameInstance.current.fen(), // Keep current game state
+        lastMoveTime: Date.now(),
       })
 
       console.log("✅ Game forfeited successfully, winner:", winner)
