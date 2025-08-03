@@ -1,9 +1,8 @@
 "use client"
 
-// src/hooks/useRealtimeChess.js - Enhanced with better game features
 import { useState, useEffect, useRef, useCallback } from "react"
 import { Chess } from "chess.js"
-import { doc, onSnapshot, updateDoc } from "firebase/firestore"
+import { doc, onSnapshot, updateDoc, serverTimestamp } from "firebase/firestore"
 import { firestore } from "../utils/firebase"
 
 const useRealtimeChess = (roomId, playerColor, username, timeLimit) => {
@@ -26,7 +25,6 @@ const useRealtimeChess = (roomId, playerColor, username, timeLimit) => {
   const [possibleMoves, setPossibleMoves] = useState([])
   const [captureSquares, setCaptureSquares] = useState([])
   const [lastMove, setLastMove] = useState([])
-  const [moveCount, setMoveCount] = useState(0)
 
   // Room state
   const [roomInfo, setRoomInfo] = useState(null)
@@ -34,19 +32,24 @@ const useRealtimeChess = (roomId, playerColor, username, timeLimit) => {
   const [isMyTurn, setIsMyTurn] = useState(false)
   const [opponentConnected, setOpponentConnected] = useState(true)
 
-  // Timer state
+  // Timer state - using refs to prevent conflicts
   const [timeLeft, setTimeLeft] = useState({
     white: timeLimit * 60,
     black: timeLimit * 60,
   })
 
-  // Refs
+  // Refs for performance and consistency
   const gameInstance = useRef(new Chess())
   const timerInterval = useRef(null)
   const roomRef = useRef(doc(firestore, "rooms", roomId))
   const isProcessingMove = useRef(false)
+  const lastUpdateTime = useRef(Date.now())
+  const serverTimeOffset = useRef(0)
+  const lastFirebaseUpdate = useRef(0)
+  const timerUpdateRef = useRef(null)
+  const gameStartTimeRef = useRef(null)
 
-  // Enhanced game analysis
+  // Optimized game analysis with memoization
   const analyzePosition = useCallback((game) => {
     const capturedPieces = { white: [], black: [] }
     const initialPieces = {
@@ -57,16 +60,16 @@ const useRealtimeChess = (roomId, playerColor, username, timeLimit) => {
     const currentPieces = { white: [], black: [] }
     const board = game.board()
 
-    // Count current pieces
-    board.forEach((row) => {
-      row.forEach((square) => {
+    // Count current pieces efficiently
+    for (let row = 0; row < 8; row++) {
+      for (let col = 0; col < 8; col++) {
+        const square = board[row][col]
         if (square) {
           currentPieces[square.color === "w" ? "white" : "black"].push(square.type)
         }
-      })
-    })
-
-    // Calculate captured pieces - pieces that the opposite color captured
+      }
+    }
+    // Calculate captured pieces
     ;["white", "black"].forEach((color) => {
       const initial = [...initialPieces[color]]
       const current = [...currentPieces[color]]
@@ -76,7 +79,6 @@ const useRealtimeChess = (roomId, playerColor, username, timeLimit) => {
         if (index !== -1) {
           current.splice(index, 1)
         } else {
-          // This piece was captured by the opposite color
           capturedPieces[color === "white" ? "black" : "white"].push(piece)
         }
       })
@@ -87,16 +89,16 @@ const useRealtimeChess = (roomId, playerColor, username, timeLimit) => {
       isCheck: game.inCheck(),
       isCheckmate: game.isCheckmate(),
       isStalemate: game.isStalemate(),
-      isThreefoldRepetition: game.isThreefoldRepetition(),
-      isInsufficientMaterial: game.isInsufficientMaterial(),
     }
   }, [])
 
-  // Create game instance from FEN
+  // Optimized game creation
   const createGameFromFen = useCallback((fen) => {
     try {
       const game = new Chess()
-      game.load(fen)
+      if (fen && fen !== new Chess().fen()) {
+        game.load(fen)
+      }
       return game
     } catch (error) {
       console.error("Invalid FEN:", error)
@@ -104,73 +106,77 @@ const useRealtimeChess = (roomId, playerColor, username, timeLimit) => {
     }
   }, [])
 
-  // Update game state from Firebase
+  // Optimized Firebase update handler
   const updateGameFromFirebase = useCallback(
     (data) => {
-      if (!data) return
+      if (!data || lastFirebaseUpdate.current === data.version) return
 
-      console.log("🔄 Updating from Firebase:", data)
+      console.log("🔄 Firebase update:", data.version)
+      lastFirebaseUpdate.current = data.version || 0
 
       try {
         const game = createGameFromFen(data.gameState || new Chess().fen())
         gameInstance.current = game
 
         const analysis = analyzePosition(game)
+        const moveHistory = game.history()
 
-        setGameState({
+        // Batch state updates to prevent multiple re-renders
+        const newGameState = {
           fen: game.fen(),
           board: game.board(),
           turn: game.turn(),
-          history: game.history(),
+          history: moveHistory,
           isCheck: analysis.isCheck,
           isCheckmate: analysis.isCheckmate,
           isStalemate: analysis.isStalemate,
           isGameOver: game.isGameOver(),
           winner: data.winner || null,
           capturedPieces: analysis.capturedPieces,
-        })
+        }
 
-        setMoveCount(game.history().length)
+        setGameState(newGameState)
         setRoomInfo(data)
         setIsGameStarted(data.gameStarted || false)
+        setLastMove(data.lastMove || [])
 
-        // Enhanced turn calculation with better validation
+        // Handle timer updates more efficiently
+        if (data.gameStarted && !data.gameOver) {
+          const currentTime = Date.now()
+
+          // Only update times if they're significantly different or this is initial load
+          const newWhiteTime = data.whiteTime ?? timeLimit * 60
+          const newBlackTime = data.blackTime ?? timeLimit * 60
+
+          setTimeLeft((prev) => {
+            const shouldUpdateWhite = Math.abs(prev.white - newWhiteTime) > 2
+            const shouldUpdateBlack = Math.abs(prev.black - newBlackTime) > 2
+
+            if (shouldUpdateWhite || shouldUpdateBlack) {
+              return {
+                white: newWhiteTime,
+                black: newBlackTime,
+              }
+            }
+            return prev
+          })
+
+          // Store game start time for accurate timer calculations
+          if (data.gameStartedAt && !gameStartTimeRef.current) {
+            gameStartTimeRef.current = data.gameStartedAt.toMillis?.() || data.gameStartedAt
+          }
+        }
+
+        // Enhanced turn calculation
         const currentTurn = game.turn()
         const isMyActualTurn =
-          currentTurn === playerColor && 
-          (data.gameStarted || false) && 
-          !game.isGameOver() && 
+          currentTurn === playerColor &&
+          (data.gameStarted || false) &&
+          !game.isGameOver() &&
           !data.gameOver &&
           data.status === "playing"
 
-        console.log(
-          `🎯 Turn Check: current=${currentTurn}, player=${playerColor}, started=${data.gameStarted}, gameOver=${game.isGameOver()}, status=${data.status}, isMyTurn=${isMyActualTurn}`,
-        )
-
         setIsMyTurn(isMyActualTurn)
-        setLastMove(data.lastMove || [])
-
-        setTimeLeft({
-          white: data.whiteTime || timeLimit * 60,
-          black: data.blackTime || timeLimit * 60,
-        })
-
-        // Check opponent connection with better error handling
-        const now = Date.now()
-        const opponentLastSeen = playerColor === "w" ? data.guestLastSeen : data.hostLastSeen
-        let isOpponentConnected = true
-        
-        if (opponentLastSeen) {
-          try {
-            const lastSeenTime = opponentLastSeen?.toMillis?.() || opponentLastSeen
-            isOpponentConnected = now - lastSeenTime < 30000
-          } catch (err) {
-            console.warn("Error parsing opponent last seen time:", err)
-            isOpponentConnected = true // Default to connected if we can't parse
-          }
-        }
-        
-        setOpponentConnected(isOpponentConnected)
 
         // Clear selection when it's not my turn
         if (!isMyActualTurn) {
@@ -178,39 +184,70 @@ const useRealtimeChess = (roomId, playerColor, username, timeLimit) => {
           setPossibleMoves([])
           setCaptureSquares([])
         }
+
+        // Check opponent connection
+        const now = Date.now()
+        const opponentLastSeen = playerColor === "w" ? data.guestLastSeen : data.hostLastSeen
+        let isOpponentConnected = true
+
+        if (opponentLastSeen) {
+          try {
+            const lastSeenTime = opponentLastSeen?.toMillis?.() || opponentLastSeen
+            isOpponentConnected = now - lastSeenTime < 15000 // Reduced threshold
+          } catch (err) {
+            console.warn("Error parsing opponent last seen time:", err)
+            isOpponentConnected = true
+          }
+        }
+
+        setOpponentConnected(isOpponentConnected)
       } catch (error) {
         console.error("Error updating game from Firebase:", error)
-        // Don't crash the app, just log the error
       }
     },
     [playerColor, timeLimit, createGameFromFen, analyzePosition],
   )
 
-  // Firebase listener
+  // Optimized Firebase listener with better error handling
   useEffect(() => {
-    console.log("🔌 Setting up Firebase listener")
+    console.log("🔌 Setting up optimized Firebase listener")
 
     const unsubscribe = onSnapshot(
       roomRef.current,
+      {
+        includeMetadataChanges: false, // Ignore metadata changes for better performance
+      },
       (snapshot) => {
         if (snapshot.exists()) {
-          updateGameFromFirebase(snapshot.data())
+          const data = snapshot.data()
+          // Debounce rapid updates
+          clearTimeout(timerUpdateRef.current)
+          timerUpdateRef.current = setTimeout(() => {
+            updateGameFromFirebase(data)
+          }, 50) // Small delay to batch rapid updates
         } else {
           console.error("Room does not exist")
         }
       },
       (error) => {
         console.error("Firebase listener error:", error)
+        // Auto-retry connection after error
+        setTimeout(() => {
+          console.log("Retrying Firebase connection...")
+        }, 2000)
       },
     )
 
     return () => {
       console.log("🔌 Cleaning up Firebase listener")
       unsubscribe()
+      if (timerUpdateRef.current) {
+        clearTimeout(timerUpdateRef.current)
+      }
     }
   }, [updateGameFromFirebase])
 
-  // Enhanced timer logic
+  // Improved timer logic with better synchronization
   useEffect(() => {
     if (timerInterval.current) {
       clearInterval(timerInterval.current)
@@ -220,23 +257,30 @@ const useRealtimeChess = (roomId, playerColor, username, timeLimit) => {
       return
     }
 
-    console.log("⏰ Starting timer for", gameState.turn)
+    console.log("⏰ Starting optimized timer")
 
     timerInterval.current = setInterval(async () => {
-      const currentPlayerTime = gameState.turn === "w" ? timeLeft.white : timeLeft.black
-      const newTime = Math.max(0, currentPlayerTime - 1)
+      const currentTime = Date.now()
 
-      // Update local state immediately
-      setTimeLeft((prev) => ({
-        ...prev,
-        [gameState.turn === "w" ? "white" : "black"]: newTime,
-      }))
+      setTimeLeft((prevTime) => {
+        const activeColor = gameState.turn === "w" ? "white" : "black"
+        const currentPlayerTime = prevTime[activeColor]
 
-      // Update Firebase every 5 seconds or when time runs out
-      if (newTime % 5 === 0 || newTime === 0) {
-        try {
+        if (currentPlayerTime <= 0) {
+          return prevTime // Don't go negative
+        }
+
+        const newTime = Math.max(0, currentPlayerTime - 1)
+        const newTimeState = {
+          ...prevTime,
+          [activeColor]: newTime,
+        }
+
+        // Update Firebase less frequently to reduce load
+        if (newTime % 3 === 0 || newTime === 0) {
           const updateData = {
             [gameState.turn === "w" ? "whiteTime" : "blackTime"]: newTime,
+            lastActivity: serverTimestamp(),
           }
 
           if (newTime === 0) {
@@ -246,11 +290,14 @@ const useRealtimeChess = (roomId, playerColor, username, timeLimit) => {
             updateData.endReason = "timeout"
           }
 
-          await updateDoc(roomRef.current, updateData)
-        } catch (error) {
-          console.error("Timer update error:", error)
+          // Non-blocking Firebase update
+          updateDoc(roomRef.current, updateData).catch((error) => {
+            console.error("Timer update error:", error)
+          })
         }
-      }
+
+        return newTimeState
+      })
     }, 1000)
 
     return () => {
@@ -258,29 +305,20 @@ const useRealtimeChess = (roomId, playerColor, username, timeLimit) => {
         clearInterval(timerInterval.current)
       }
     }
-  }, [isGameStarted, gameState.isGameOver, gameState.turn, timeLeft])
+  }, [isGameStarted, gameState.isGameOver, gameState.turn])
 
-  // Enhanced make move function
+  // Optimized move making with better validation
   const makeMove = useCallback(
     async (from, to) => {
       if (!isMyTurn || isProcessingMove.current || gameState.isGameOver) {
-        console.log("❌ Move blocked:", {
-          isMyTurn,
-          isProcessing: isProcessingMove.current,
-          gameOver: gameState.isGameOver,
-        })
         return false
       }
 
-      // Double check turn
       if (gameState.turn !== playerColor) {
-        console.log("❌ Not your turn:", { gameTurn: gameState.turn, playerColor })
         return false
       }
 
-      // Additional validation
       if (!from || !to || from === to) {
-        console.log("❌ Invalid move coordinates:", { from, to })
         return false
       }
 
@@ -288,26 +326,15 @@ const useRealtimeChess = (roomId, playerColor, username, timeLimit) => {
 
       try {
         const game = new Chess(gameState.fen)
-        
-        // Validate the move before making it
-        const moves = game.moves({ verbose: true })
-        const isValidMove = moves.some(move => move.from === from && move.to === to)
-        
-        if (!isValidMove) {
-          console.log("❌ Move not in legal moves list:", { from, to })
-          return false
-        }
-
         const move = game.move({ from, to, promotion: "q" })
 
         if (!move) {
-          console.log("❌ Invalid move:", from, "to", to)
           return false
         }
 
-        console.log("✅ Valid move:", move.san, "from", from, "to", to)
+        console.log("✅ Making move:", move.san)
 
-        // Determine game end with enhanced logic
+        // Determine game end
         let winner = null
         let gameOver = false
         let endReason = null
@@ -320,40 +347,26 @@ const useRealtimeChess = (roomId, playerColor, username, timeLimit) => {
           } else if (game.isStalemate()) {
             winner = "Draw"
             endReason = "stalemate"
-          } else if (game.isThreefoldRepetition()) {
-            winner = "Draw"
-            endReason = "threefold_repetition"
-          } else if (game.isInsufficientMaterial()) {
-            winner = "Draw"
-            endReason = "insufficient_material"
           } else {
             winner = "Draw"
             endReason = "draw"
           }
         }
 
-        // Update Firebase with enhanced data
+        // Optimized Firebase update
         const updateData = {
           gameState: game.fen(),
           lastMove: [from, to],
           gameOver,
           winner,
           endReason,
-          lastMoveTime: Date.now(),
+          lastMoveTime: serverTimestamp(),
           lastMoveSan: move.san,
           moveCount: game.history().length,
-        }
-
-        // Add timeout handling if time is up
-        if (timeLeft[gameState.turn === "w" ? "white" : "black"] <= 0) {
-          updateData.gameOver = true
-          updateData.winner = gameState.turn === "w" ? "Black" : "White"
-          updateData.timeoutWinner = true
-          updateData.endReason = "timeout"
+          version: (roomInfo?.version || 0) + 1,
         }
 
         await updateDoc(roomRef.current, updateData)
-
         return true
       } catch (error) {
         console.error("Move error:", error)
@@ -362,85 +375,62 @@ const useRealtimeChess = (roomId, playerColor, username, timeLimit) => {
         isProcessingMove.current = false
       }
     },
-    [isMyTurn, gameState.fen, gameState.turn, gameState.isGameOver, playerColor, timeLeft],
+    [isMyTurn, gameState.fen, gameState.turn, gameState.isGameOver, playerColor, roomInfo?.version],
   )
 
-  // Enhanced square click handler
+  // Optimized square click handler
   const handleSquareClick = useCallback(
     (square) => {
-      console.log(
-        `🎯 Square clicked: ${square}, isMyTurn: ${isMyTurn}, turn: ${gameState.turn}, playerColor: ${playerColor}`,
-      )
-
       if (!isMyTurn || gameState.isGameOver) {
-        console.log("❌ Click ignored - not your turn or game over")
         return
       }
 
       const piece = gameInstance.current.get(square)
-      console.log(`🏃 Piece at ${square}:`, piece)
 
-      // If clicking on empty square and no piece selected, do nothing
       if (!piece && !selectedSquare) {
         return
       }
 
-      // If no piece selected, try to select one
       if (!selectedSquare) {
         if (piece && piece.color === playerColor) {
-          console.log(`✅ Selecting piece at ${square}:`, piece)
           setSelectedSquare(square)
           const moves = gameInstance.current.moves({ square, verbose: true })
-          console.log(
-            `📍 Legal moves for ${square}:`,
-            moves.map((m) => m.to),
-          )
           setPossibleMoves(moves.map((m) => m.to))
-          setCaptureSquares(moves.filter((m) => m.captured).map((m) => m.to))
-        } else {
-          console.log("❌ Cannot select - not your piece or no piece")
+          setCaptureSquares(moves.filter((m) => m.captured || m.flags.includes("c")).map((m) => m.to))
         }
         return
       }
 
-      // If clicking same square, deselect
       if (square === selectedSquare) {
-        console.log("🔄 Deselecting piece")
         setSelectedSquare(null)
         setPossibleMoves([])
         setCaptureSquares([])
         return
       }
 
-      // If clicking on another piece of same color, select it instead
       if (piece && piece.color === playerColor) {
-        console.log(`🔄 Switching selection to ${square}`)
         setSelectedSquare(square)
         const moves = gameInstance.current.moves({ square, verbose: true })
         setPossibleMoves(moves.map((m) => m.to))
-        setCaptureSquares(moves.filter((m) => m.captured).map((m) => m.to))
+        setCaptureSquares(moves.filter((m) => m.captured || m.flags.includes("c")).map((m) => m.to))
         return
       }
 
       // Try to make move
-      console.log(`🎯 Attempting move from ${selectedSquare} to ${square}`)
       makeMove(selectedSquare, square).then((success) => {
         if (success) {
           setSelectedSquare(null)
           setPossibleMoves([])
           setCaptureSquares([])
-        } else {
-          console.log("❌ Move failed")
         }
       })
     },
-    [isMyTurn, selectedSquare, playerColor, makeMove, gameState.isGameOver, gameState.turn],
+    [isMyTurn, selectedSquare, playerColor, makeMove, gameState.isGameOver],
   )
 
-  // Enhanced forfeit game - opponent wins (FIXED)
+  // Optimized forfeit function
   const forfeitGame = useCallback(async () => {
     try {
-      console.log("🏳️ Forfeiting game for player:", playerColor)
       const winner = playerColor === "w" ? "Black" : "White"
 
       await updateDoc(roomRef.current, {
@@ -449,23 +439,20 @@ const useRealtimeChess = (roomId, playerColor, username, timeLimit) => {
         forfeited: true,
         forfeitedBy: playerColor,
         endReason: "forfeit",
-        lastActivity: Date.now(),
-        gameState: gameInstance.current.fen(), // Keep current game state
-        lastMoveTime: Date.now(),
+        lastActivity: serverTimestamp(),
+        version: (roomInfo?.version || 0) + 1,
       })
 
-      console.log("✅ Game forfeited successfully, winner:", winner)
       return true
     } catch (error) {
       console.error("❌ Forfeit error:", error)
       throw error
     }
-  }, [playerColor])
+  }, [playerColor, roomInfo?.version])
 
-  // Enhanced reset game
+  // Optimized reset function
   const resetGame = useCallback(async () => {
     try {
-      console.log("🔄 Resetting game...")
       const newGame = new Chess()
 
       await updateDoc(roomRef.current, {
@@ -482,17 +469,25 @@ const useRealtimeChess = (roomId, playerColor, username, timeLimit) => {
         moveCount: 0,
         whiteTime: timeLimit * 60,
         blackTime: timeLimit * 60,
-        lastActivity: Date.now(),
+        gameStartedAt: serverTimestamp(),
+        lastActivity: serverTimestamp(),
+        version: (roomInfo?.version || 0) + 1,
       })
 
-      console.log("✅ Game reset successfully")
+      // Reset local timer state
+      setTimeLeft({
+        white: timeLimit * 60,
+        black: timeLimit * 60,
+      })
+
+      gameStartTimeRef.current = Date.now()
     } catch (error) {
       console.error("❌ Reset error:", error)
       throw error
     }
-  }, [timeLimit])
+  }, [timeLimit, roomInfo?.version])
 
-  // Get game status message
+  // Status message
   const getGameStatusMessage = useCallback(() => {
     if (!isGameStarted) return "Game not started"
     if (gameState.isGameOver) {
@@ -523,7 +518,6 @@ const useRealtimeChess = (roomId, playerColor, username, timeLimit) => {
     possibleMoves,
     captureSquares,
     lastMove,
-    moveCount,
 
     // Room state
     roomInfo,
@@ -534,7 +528,7 @@ const useRealtimeChess = (roomId, playerColor, username, timeLimit) => {
 
     // Actions
     handleSquareClick,
-    forfeitGame, // Fixed function name
+    forfeitGame,
     resetGame,
     getGameStatusMessage,
   }

@@ -31,6 +31,7 @@ const useChessGame = () => {
   const intervalRef = useRef(null)
   const gameEndedRef = useRef(false)
   const scoreCountedRef = useRef(false)
+  const lastTimerUpdate = useRef(Date.now())
 
   useEffect(() => {
     initEngine()
@@ -60,19 +61,17 @@ const useChessGame = () => {
 
     const captured = { white: [], black: [] }
 
-    // White captured pieces = black pieces that are missing (opponent pieces I captured)
     for (const type in initialPieceCounts.b) {
       const missing = initialPieceCounts.b[type] - currentPieceCounts.b[type]
       for (let i = 0; i < missing; i++) {
-        captured.white.push(type) // These are black pieces captured by white
+        captured.white.push(type)
       }
     }
 
-    // Black captured pieces = white pieces that are missing (opponent pieces I captured)
     for (const type in initialPieceCounts.w) {
       const missing = initialPieceCounts.w[type] - currentPieceCounts.w[type]
       for (let i = 0; i < missing; i++) {
-        captured.black.push(type) // These are white pieces captured by black
+        captured.black.push(type)
       }
     }
 
@@ -83,16 +82,28 @@ const useChessGame = () => {
     setCapturedPieces(calculateCapturedPieces(game.board()))
   }, [game.fen(), calculateCapturedPieces])
 
+  // Improved timer with better performance
   useEffect(() => {
-    if (!gameStarted || gameOver) return
+    if (!gameStarted || gameOver) {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+      }
+      return
+    }
 
     intervalRef.current = setInterval(() => {
+      const now = Date.now()
+      const deltaTime = now - lastTimerUpdate.current
+      lastTimerUpdate.current = now
+
+      // Only update if reasonable time has passed (prevent timer jumps)
+      if (deltaTime > 2000) return
+
       const isPlayersTurn = currentTurn === playAs
 
       const updateTime = (setTime, timeoutWinner, winHandler) => {
         setTime((prevTime) => {
           if (prevTime <= 1) {
-            clearInterval(intervalRef.current)
             if (!gameEndedRef.current) {
               gameEndedRef.current = true
               setGameOver(true)
@@ -112,16 +123,20 @@ const useChessGame = () => {
 
       if (isPlayersTurn) {
         playAs === "w"
-          ? updateTime(setWhiteTime, "Engine ", setEngineScore)
-          : updateTime(setBlackTime, "Engine ", setEngineScore)
+          ? updateTime(setWhiteTime, "Engine", setEngineScore)
+          : updateTime(setBlackTime, "Engine", setEngineScore)
       } else {
         playAs === "w"
-          ? updateTime(setBlackTime, "You ", setPlayerScore)
-          : updateTime(setWhiteTime, "You ", setPlayerScore)
+          ? updateTime(setBlackTime, "You", setPlayerScore)
+          : updateTime(setWhiteTime, "You", setPlayerScore)
       }
     }, 1000)
 
-    return () => clearInterval(intervalRef.current)
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+      }
+    }
   }, [currentTurn, gameOver, gameStarted, playAs])
 
   const startGameWithTime = (minutes) => {
@@ -146,9 +161,10 @@ const useChessGame = () => {
     gameEndedRef.current = false
     scoreCountedRef.current = false
     setCapturedPieces({ white: [], black: [] })
+    lastTimerUpdate.current = Date.now()
 
     if (playAs === "b") {
-      setTimeout(() => makeComputerMove(newGame), 500)
+      setTimeout(() => makeComputerMove(newGame), 300)
     }
   }
 
@@ -158,12 +174,7 @@ const useChessGame = () => {
     const fen = currentGame.fen()
 
     getBestMoveFromStockfish(fen, (uciMove) => {
-      if (!uciMove) {
-        if (!gameEndedRef.current) {
-          gameEndedRef.current = true
-          setGameOver(true)
-          setWinner("Draw or Error")
-        }
+      if (!uciMove || gameEndedRef.current) {
         return
       }
 
@@ -180,7 +191,7 @@ const useChessGame = () => {
         setCurrentTurn(newGame.turn())
         setLastMoveSquares([move.from, move.to])
 
-        if (newGame.isGameOver() && !gameEndedRef.current && !ifTimeout) {
+        if (newGame.isGameOver() && !gameEndedRef.current) {
           gameEndedRef.current = true
           setGameOver(true)
 
@@ -193,7 +204,7 @@ const useChessGame = () => {
             scoreCountedRef.current = true
           }
         } else if (newGame.turn() !== playAs) {
-          setTimeout(() => makeComputerMove(newGame), 500)
+          setTimeout(() => makeComputerMove(newGame), 300)
         }
       }
     })
@@ -210,7 +221,7 @@ const useChessGame = () => {
       setSelected(square)
       const moves = game.moves({ square, verbose: true })
       setLegalMoves(moves.map((m) => m.to))
-      setCaptureTargets(moves.filter((m) => m.captured).map((m) => m.to))
+      setCaptureTargets(moves.filter((m) => m.captured || m.flags.includes("c")).map((m) => m.to))
       return
     }
 
@@ -227,7 +238,7 @@ const useChessGame = () => {
         setCurrentTurn(newGame.turn())
         setLastMoveSquares([move.from, move.to])
 
-        if (newGame.isGameOver() && !gameEndedRef.current && !ifTimeout) {
+        if (newGame.isGameOver() && !gameEndedRef.current) {
           gameEndedRef.current = true
           setGameOver(true)
 
@@ -240,7 +251,7 @@ const useChessGame = () => {
             scoreCountedRef.current = true
           }
         } else if (newGame.turn() !== playAs) {
-          setTimeout(() => makeComputerMove(newGame), 500)
+          setTimeout(() => makeComputerMove(newGame), 300)
         }
       } else {
         setSelected(null)
@@ -251,13 +262,17 @@ const useChessGame = () => {
   }
 
   const resetGame = () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current)
+    }
+
     setGame(new Chess())
     setSelected(null)
     setLegalMoves([])
     setCaptureTargets([])
     setMoveHistory([])
-    setWhiteTime(initialTime)
-    setBlackTime(initialTime)
+    setWhiteTime(initialTime || 0)
+    setBlackTime(initialTime || 0)
     setCurrentTurn("w")
     setGameOver(false)
     setWinner(null)
@@ -269,6 +284,7 @@ const useChessGame = () => {
     gameEndedRef.current = false
     scoreCountedRef.current = false
     setCapturedPieces({ white: [], black: [] })
+    lastTimerUpdate.current = Date.now()
   }
 
   const abortGame = () => {

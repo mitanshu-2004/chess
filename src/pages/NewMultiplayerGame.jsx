@@ -5,9 +5,8 @@ import { useParams, useSearchParams, useNavigate } from "react-router-dom"
 import useRealtimeChess from "../hooks/useRealtimeChess"
 import ChessSquare from "../components/ChessSquare"
 import MoveHistory from "../components/MoveHistory"
-import Timer from "../components/Timer"
-import PlayerCard from "../components/PlayerCard" // Import PlayerCard
-import GameOverModal from "../components/GameOverModal" // Import GameOverModal
+import PlayerCard from "../components/PlayerCard"
+import GameOverModal from "../components/GameOverModal"
 import { COLORS } from "../utils/colors"
 
 const NewMultiplayerGame = () => {
@@ -22,18 +21,35 @@ const NewMultiplayerGame = () => {
   const [error, setError] = useState(null)
   const [isForfeiting, setIsForfeiting] = useState(false)
 
+  const {
+    gameState,
+    selectedSquare,
+    possibleMoves,
+    captureSquares,
+    lastMove,
+    roomInfo,
+    isGameStarted,
+    isMyTurn,
+    timeLeft,
+    opponentConnected,
+    handleSquareClick,
+    forfeitGame,
+    resetGame,
+    getGameStatusMessage,
+  } = useRealtimeChess(roomId, playerColor, username, selectedTime)
+
   // Validate required parameters
   useEffect(() => {
     if (!roomId || !playerColor || !username) {
       setError("Missing required game parameters. Please return to the lobby.")
       return
     }
-    
+
     if (!["w", "b"].includes(playerColor)) {
       setError("Invalid player color. Please return to the lobby.")
       return
     }
-    
+
     if (selectedTime < 1 || selectedTime > 60) {
       setError("Invalid time control. Please return to the lobby.")
       return
@@ -43,19 +59,21 @@ const NewMultiplayerGame = () => {
   // Handle errors
   if (error) {
     return (
-      <div style={{
-        height: "100vh",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "linear-gradient(120deg, #f5f5dc 0%, #e6d7c3 50%, #f5f5dc 100%)",
-        fontFamily: "'Segoe UI', sans-serif"
-      }}>
+      <div
+        style={{
+          height: "100vh",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "linear-gradient(120deg, #f5f5dc 0%, #e6d7c3 50%, #f5f5dc 100%)",
+          fontFamily: "'Segoe UI', sans-serif",
+        }}
+      >
         <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>⚠️</div>
         <div style={{ fontSize: "1.5rem", marginBottom: "1rem", textAlign: "center" }}>Game Error</div>
         <div style={{ fontSize: "1rem", marginBottom: "2rem", textAlign: "center", color: "#666" }}>{error}</div>
-        <button 
+        <button
           onClick={() => navigate("/multiplayer-lobby?username=" + encodeURIComponent(username))}
           style={{
             padding: "0.75rem 1.5rem",
@@ -64,7 +82,7 @@ const NewMultiplayerGame = () => {
             color: "white",
             border: "none",
             borderRadius: "0.5rem",
-            cursor: "pointer"
+            cursor: "pointer",
           }}
         >
           Return to Lobby
@@ -96,25 +114,16 @@ const NewMultiplayerGame = () => {
       100% { opacity: 1; transform: translateY(0) scale(1); }
     }
 
-    @keyframes selectedPulse {
-      0%, 100% {
-         outline: 0.3rem solid ${COLORS.selectedBorder};
-        box-shadow: 0 0 1.5rem rgba(230, 184, 0, 0.4);
+    @keyframes boardGlow {
+      0%, 100% { 
+        box-shadow: 0 1vh 3vh rgba(141, 110, 99, 0.3), 
+                    0 0 0 0.2vh rgba(255, 255, 255, 0.2),
+                    0 0 20px rgba(76, 175, 80, 0.1);
       }
-      50% {
-         outline: 0.4rem solid ${COLORS.accentDark};
-        box-shadow: 0 0 2.5rem rgba(204, 153, 0, 0.6);
-      }
-    }
-
-    @keyframes lastMovePulse {
-      0%, 100% {
-         background-color: ${COLORS.lastMoveBg} !important;
-        box-shadow: inset 0 0 0 0.2rem rgba(255, 215, 0, 0.3);
-      }
-      50% {
-         background-color: rgba(255, 215, 0, 0.2) !important;
-        box-shadow: inset 0 0 0 0.3rem rgba(255, 215, 0, 0.5);
+      50% { 
+        box-shadow: 0 1.2vh 3.5vh rgba(141, 110, 99, 0.4), 
+                    0 0 0 0.2vh rgba(255, 255, 255, 0.3),
+                    0 0 30px rgba(76, 175, 80, 0.2);
       }
     }
 
@@ -123,6 +132,7 @@ const NewMultiplayerGame = () => {
       padding: 0;
       height: 100%;
       font-family: 'Segoe UI', sans-serif;
+      cursor: default;
     }
 
     .main-layout {
@@ -162,9 +172,9 @@ const NewMultiplayerGame = () => {
       flex-grow: 1;
       justify-content: center;
       align-items: flex-start;
-      gap: 5rem;
+      gap: 2rem;
       width: 100%;
-      max-width: 1200px;
+      max-width: 1400px;
       margin: 0 auto;
       position: relative;
       z-index: 1;
@@ -174,49 +184,28 @@ const NewMultiplayerGame = () => {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 0.5rem;
-    }
-
-    .player-card-container {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      width: 100%;
-      max-width: 600px;
-      padding: 0.8rem;
-      background: rgba(252, 248, 243, 0.95);
-      backdrop-filter: blur(10px);
-      box-shadow: 0 0.5vh 1.5vh rgba(141, 110, 99, 0.2);
-      border-radius: 12px;
       gap: 1rem;
-      border: 0.1vh solid rgba(255, 255, 255, 0.3);
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-
-    .player-card-container:hover {
-      box-shadow: 0 0.8vh 2vh rgba(141, 110, 99, 0.25);
-      transform: translateY(-1px);
-    }
-
-    .player-card-container.top {
-      margin-bottom: 0.5rem;
-    }
-
-    .player-card-container.bottom {
-      margin-top: 0.5rem;
+      flex: 1;
+      max-width: 700px;
     }
 
     .board-container {
-      width: min(80vw, 80vh);
-      max-width: 600px;
+      width: min(90vw, 90vh, 600px);
       aspect-ratio: 1 / 1;
       display: grid;
       grid-template-columns: repeat(8, 1fr);
-      border-radius: 8px;
+      border-radius: 12px;
       overflow: hidden;
-      box-shadow: 0 1vh 3vh rgba(141, 110, 99, 0.3), 0 0 0 0.2vh rgba(255, 255, 255, 0.2);
+      border: 0.3vh solid rgba(141, 110, 99, 0.3);
       flex-shrink: 0;
-      border: 0.2vh solid rgba(141, 110, 99, 0.2);
+      animation: boardGlow 3s ease-in-out infinite;
+      transition: all 0.3s ease;
+      cursor: crosshair;
+    }
+
+    .board-container:hover {
+      transform: translateY(-2px);
+      animation-duration: 1.5s;
     }
 
     .right-panel-wrapper {
@@ -224,6 +213,7 @@ const NewMultiplayerGame = () => {
       flex-direction: column;
       gap: 1rem;
       flex-shrink: 0;
+      width: 300px;
     }
 
     .errorContainer {
@@ -499,61 +489,150 @@ const NewMultiplayerGame = () => {
       transform: translateY(-0.1rem);
     }
 
-    /* Media Queries */
+    /* Enhanced button and interactive element cursors */
+    button {
+      cursor: pointer !important;
+      transition: all 0.2s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    input {
+      cursor: text !important;
+    }
+
+    .clickable {
+      cursor: pointer !important;
+    }
+
+    .draggable {
+      cursor: grab !important;
+    }
+
+    .draggable:active {
+      cursor: grabbing !important;
+    }
+
+    /* Media Queries for better mobile support */
+    @media (max-width: 1200px) {
+      .game-content-area {
+        gap: 1.5rem;
+      }
+      
+      .right-panel-wrapper {
+        width: 280px;
+      }
+    }
+
     @media (max-width: 1024px) {
       .main-layout {
         padding: 0.5rem;
       }
+      
       .game-content-area {
         flex-direction: column;
         align-items: center;
-        gap: 0.5rem;
+        gap: 1rem;
       }
+      
+      .board-section {
+        width: 100%;
+        max-width: none;
+      }
+      
       .board-container {
-        width: 95vw;
-        max-width: 95vw;
+        width: min(95vw, 95vh, 500px);
+        cursor: pointer;
       }
-      .player-card-container {
-        width: 95vw;
-        max-width: 95vw;
-        flex-direction: row;
-        justify-content: space-between;
-        padding: 0.5rem;
-      }
+      
       .right-panel-wrapper {
         width: 100%;
         max-width: 400px;
         align-items: center;
       }
     }
+
+    @media (max-width: 768px) {
+      .main-layout {
+        padding: 0.25rem;
+      }
+      
+      .game-content-area {
+        gap: 0.75rem;
+      }
+      
+      .board-container {
+        width: min(98vw, 98vh, 450px);
+        border-radius: 8px;
+      }
+      
+      .board-section {
+        gap: 0.75rem;
+      }
+    }
+
     @media (max-width: 600px) {
       .board-container {
-        width: 100%;
-        max-width: 100%;
+        width: min(100vw - 1rem, 100vh - 200px, 400px);
+        cursor: pointer;
       }
-      .player-card-container {
-        width: 100%;
-        max-width: 100%;
+      
+      .game-content-area {
+        gap: 0.5rem;
+      }
+      
+      .board-section {
+        gap: 0.5rem;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .main-layout {
+        padding: 0.125rem;
+      }
+      
+      .board-container {
+        width: min(100vw - 0.5rem, 100vh - 180px, 350px);
+        border-radius: 6px;
+      }
+    }
+
+    /* Landscape orientation adjustments */
+    @media (max-height: 600px) and (orientation: landscape) {
+      .game-content-area {
+        flex-direction: row;
+        gap: 1rem;
+      }
+      
+      .board-container {
+        width: min(70vh, 400px);
+      }
+      
+      .right-panel-wrapper {
+        width: 250px;
+      }
+      
+      .board-section {
+        gap: 0.5rem;
+      }
+    }
+
+    @media (max-height: 500px) and (orientation: landscape) {
+      .board-container {
+        width: min(60vh, 350px);
+      }
+      
+      .right-panel-wrapper {
+        width: 220px;
       }
     }
   `
-
-  const {
-    gameState,
-    selectedSquare,
-    possibleMoves,
-    captureSquares,
-    lastMove,
-    roomInfo,
-    isGameStarted,
-    isMyTurn,
-    timeLeft,
-    opponentConnected,
-    handleSquareClick,
-    forfeitGame,
-    resetGame,
-    getGameStatusMessage,
-  } = useRealtimeChess(roomId, playerColor, username, selectedTime)
 
   // Convert square name to file/rank indices
   const squareToIndices = (square) => {
@@ -653,12 +732,12 @@ const NewMultiplayerGame = () => {
 
   const displayBoard = createDisplayBoard()
   const opponentName = roomInfo?.hostPlayer === username ? roomInfo?.guestPlayer : roomInfo?.hostPlayer
-  const opponentColor = playerColor === "w" ? "b" : "w" // 'b' for black, 'w' for white
-  const myColor = playerColor // 'w' or 'b'
+  const opponentColor = playerColor === "w" ? "b" : "w"
+  const myColor = playerColor
 
   const getWinnerForModal = () => {
     if (roomInfo?.forfeited) {
-      return roomInfo.forfeitedBy === playerColor ? "You" : "Opponent" // Forfeit is always a loss for the forfeiter
+      return roomInfo.forfeitedBy === playerColor ? "You" : "Opponent"
     }
     if (roomInfo?.timeoutWinner) {
       return roomInfo.winner === (playerColor === "w" ? "White" : "Black") ? "You" : "Opponent"
@@ -719,7 +798,10 @@ const NewMultiplayerGame = () => {
               </div>
             </div>
             <div className="waitingText">Waiting for opponent to join the battle...</div>
-            <button onClick={() => navigate("/multiplayer-lobby?username=" + encodeURIComponent(username))} className="waitingLeaveButton">
+            <button
+              onClick={() => navigate("/multiplayer-lobby?username=" + encodeURIComponent(username))}
+              className="waitingLeaveButton"
+            >
               🚪 Leave Room
             </button>
           </div>
@@ -755,7 +837,7 @@ const NewMultiplayerGame = () => {
             wasAborted={getWasAbortedForModal()}
             ifTimeout={getIfTimeoutForModal()}
             onPlayAgain={handlePlayAgain}
-            onClose={() => navigate("/")} // Navigate home on close
+            onClose={() => navigate("/")}
           />
         )}
 
@@ -768,18 +850,14 @@ const NewMultiplayerGame = () => {
                 This will end the game immediately and your opponent will win. This action cannot be undone.
               </div>
               <div className="dialogButtons">
-                <button 
-                  onClick={() => setShowForfeitConfirm(false)} 
+                <button
+                  onClick={() => setShowForfeitConfirm(false)}
                   className="dialogCancelButton"
                   disabled={isForfeiting}
                 >
                   Cancel
                 </button>
-                <button 
-                  onClick={handleForfeitConfirm} 
-                  className="dialogConfirmButton"
-                  disabled={isForfeiting}
-                >
+                <button onClick={handleForfeitConfirm} className="dialogConfirmButton" disabled={isForfeiting}>
                   {isForfeiting ? "Forfeiting..." : "Forfeit Game"}
                 </button>
               </div>
@@ -790,97 +868,84 @@ const NewMultiplayerGame = () => {
         <div className="game-content-area">
           <div className="board-section">
             {/* Top Player Card - Opponent */}
-            <div className="player-card-container top">
-              <PlayerCard
-                name={opponentName || "Opponent"}
-                isBot={false} // It's a human opponent
-                isTop={true}
-                capturedPieces={gameState.capturedPieces[playerColor === "w" ? "white" : "black"]}
-              />
-              <Timer
-                time={opponentColor === "w" ? timeLeft.white : timeLeft.black}
-                isActive={gameState.turn === opponentColor && !gameState.isGameOver}
-              />
-              {/* Connection status indicator */}
-              <div style={{
-                position: 'absolute',
-                top: '0.5rem',
-                right: '0.5rem',
-                fontSize: '0.7rem',
-                color: opponentConnected ? '#4caf50' : '#f44336',
-                fontWeight: '600'
-              }}>
-              </div>
-            </div>
+            <PlayerCard
+              name={opponentName || "Opponent"}
+              rating={1200}
+              isBot={false}
+              isTop={true}
+              capturedPieces={gameState.capturedPieces[playerColor === "w" ? "white" : "black"]}
+              time={opponentColor === "w" ? timeLeft.white : timeLeft.black}
+              isActive={gameState.turn === opponentColor && !gameState.isGameOver}
+            />
 
             {/* Chess Board */}
             <div className="board-container">
               {displayBoard.map(({ piece, displayRow, displayCol }) => renderSquare(piece, displayRow, displayCol))}
-              
-              
+
               {/* Game status indicator */}
               {gameState.isCheck && !gameState.isCheckmate && (
-                <div style={{
-                  position: 'absolute',
-                  top: '50%',
-                  left: '50%',
-                  transform: 'translate(-50%, -50%)',
-                  background: 'rgba(255, 87, 34, 0.9)',
-                  color: 'white',
-                  padding: '0.5rem 1rem',
-                  borderRadius: '1rem',
-                  fontSize: '1rem',
-                  fontWeight: '700',
-                  zIndex: 10,
-                  textShadow: '0 0 10px rgba(255, 87, 34, 0.5)'
-                }}>
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "50%",
+                    left: "50%",
+                    transform: "translate(-50%, -50%)",
+                    background: "rgba(255, 87, 34, 0.9)",
+                    color: "white",
+                    padding: "0.5rem 1rem",
+                    borderRadius: "1rem",
+                    fontSize: "1rem",
+                    fontWeight: "700",
+                    zIndex: 10,
+                    textShadow: "0 0 10px rgba(255, 87, 34, 0.5)",
+                  }}
+                >
                   ⚡ CHECK!
                 </div>
               )}
               {gameState.isCheckmate && (
-                <div style={{
-                  position: 'absolute',
-                  top: '50%',
-                  left: '50%',
-                  transform: 'translate(-50%, -50%)',
-                  background: 'rgba(244, 67, 54, 0.9)',
-                  color: 'white',
-                  padding: '0.5rem 1rem',
-                  borderRadius: '1rem',
-                  fontSize: '1rem',
-                  fontWeight: '700',
-                  zIndex: 10,
-                  textShadow: '0 0 10px rgba(244, 67, 54, 0.5)'
-                }}>
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "50%",
+                    left: "50%",
+                    transform: "translate(-50%, -50%)",
+                    background: "rgba(244, 67, 54, 0.9)",
+                    color: "white",
+                    padding: "0.5rem 1rem",
+                    borderRadius: "1rem",
+                    fontSize: "1rem",
+                    fontWeight: "700",
+                    zIndex: 10,
+                    textShadow: "0 0 10px rgba(244, 67, 54, 0.5)",
+                  }}
+                >
                   💀 CHECKMATE!
                 </div>
               )}
             </div>
 
             {/* Bottom Player Card - You */}
-            <div className="player-card-container bottom">
-              <PlayerCard
-                name={username}
-                isBot={false}
-                isTop={false}
-                capturedPieces={gameState.capturedPieces[playerColor === "w" ? "black" : "white"]}
-              />
-              <Timer
-                time={myColor === "w" ? timeLeft.white : timeLeft.black}
-                isActive={gameState.turn === myColor && !gameState.isGameOver}
-              />
-            </div>
+            <PlayerCard
+              name={username}
+              rating={1200}
+              isBot={false}
+              isTop={false}
+              capturedPieces={gameState.capturedPieces[playerColor === "w" ? "black" : "white"]}
+              time={myColor === "w" ? timeLeft.white : timeLeft.black}
+              isActive={gameState.turn === myColor && !gameState.isGameOver}
+            />
           </div>
 
           <div className="right-panel-wrapper">
             <MoveHistory
               moveHistory={gameState.history}
               onResign={() => setShowForfeitConfirm(true)}
-              onNewGame={handlePlayAgain} // This will trigger resetGame
+              onNewGame={handlePlayAgain}
               playerName={username}
               opponentName={opponentName || "Opponent"}
-              playerRating={1200} // Placeholder, can be fetched from user data
-              opponentRating={1200} // Placeholder
+              playerRating={1200}
+              opponentRating={1200}
               timeControl={selectedTime}
               gameType="Multiplayer"
             />

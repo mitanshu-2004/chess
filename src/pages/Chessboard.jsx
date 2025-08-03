@@ -4,7 +4,6 @@ import ChessSquare from "../components/ChessSquare"
 import MoveHistory from "../components/MoveHistory"
 import GameSetup from "../components/GameSetup.jsx"
 import GameOverModal from "../components/GameOverModal"
-import Timer from "../components/Timer"
 import useChessGame from "../hooks/useChessGame"
 import { COLORS } from "../utils/colors"
 
@@ -26,6 +25,7 @@ const Chessboard = ({
     moveHistory,
     selected,
     legalMoves,
+    captureTargets,
     lastMoveSquares,
     currentTurn,
     inCheck,
@@ -49,6 +49,7 @@ const Chessboard = ({
     const isDark = (trueRow + col) % 2 === 1
     const isSelected = selected === square
     const isLegal = legalMoves.includes(square)
+    const isCapture = captureTargets.includes(square)
     const isLastMove = lastMoveSquares.includes(square)
     const isInCheck = inCheck && pieceObj?.type === "k" && pieceObj?.color === currentTurn
 
@@ -60,6 +61,7 @@ const Chessboard = ({
         isDark={isDark}
         isSelected={isSelected}
         isLegal={isLegal}
+        isCapture={isCapture}
         isLastMove={isLastMove}
         isInCheck={isInCheck}
         onClick={() => handleClick(row, col)}
@@ -70,14 +72,8 @@ const Chessboard = ({
   // Determine which captured pieces to show for each player
   const getPlayerCapturedPieces = (isEngineCard) => {
     if (playAs === "w") {
-      // User is white, engine is black
-      // User's card shows black pieces they captured
-      // Engine's card shows white pieces they captured
       return isEngineCard ? capturedPieces.black : capturedPieces.white
     } else {
-      // User is black, engine is white
-      // User's card shows white pieces they captured
-      // Engine's card shows black pieces they captured
       return isEngineCard ? capturedPieces.white : capturedPieces.black
     }
   }
@@ -116,6 +112,19 @@ const Chessboard = ({
     100% { filter: drop-shadow(0 0 0.8vh rgba(141, 110, 99, 0.8)); }
   }
 
+  @keyframes boardGlow {
+    0%, 100% { 
+      box-shadow: 0 1vh 3vh rgba(141, 110, 99, 0.3), 
+                  0 0 0 0.2vh rgba(255, 255, 255, 0.2),
+                  0 0 20px rgba(76, 175, 80, 0.1);
+    }
+    50% { 
+      box-shadow: 0 1.2vh 3.5vh rgba(141, 110, 99, 0.4), 
+                  0 0 0 0.2vh rgba(255, 255, 255, 0.3),
+                  0 0 30px rgba(76, 175, 80, 0.2);
+    }
+  }
+
   html,
   body {
     margin: 0;
@@ -123,6 +132,7 @@ const Chessboard = ({
     height: 100%;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background: linear-gradient(120deg, #f2e9e4 0%, #d8cfc4 50%, #f9f4ef 100%);
+    cursor: default;
   }
 
   .main-layout {
@@ -162,9 +172,9 @@ const Chessboard = ({
     flex-grow: 1;
     justify-content: center;
     align-items: flex-start;
-    gap: 5rem;
+    gap: 2rem;
     width: 100%;
-    max-width: 1200px;
+    max-width: 1400px;
     margin: 0 auto;
     position: relative;
     z-index: 1;
@@ -174,49 +184,28 @@ const Chessboard = ({
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.5rem;
-  }
-
-  .player-card-container {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    width: 100%;
-    max-width: 600px;
-    padding: 0.8rem;
-    background: rgba(252, 248, 243, 0.95);
-    backdrop-filter: blur(10px);
-    box-shadow: 0 0.5vh 1.5vh rgba(141, 110, 99, 0.2);
-    border-radius: 12px;
     gap: 1rem;
-    border: 0.1vh solid rgba(255, 255, 255, 0.3);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  .player-card-container:hover {
-    box-shadow: 0 0.8vh 2vh rgba(141, 110, 99, 0.25);
-    transform: translateY(-1px);
-  }
-
-  .player-card-container.top {
-    margin-bottom: 0.5rem;
-  }
-
-  .player-card-container.bottom {
-    margin-top: 0.5rem;
+    flex: 1;
+    max-width: 700px;
   }
 
   .board-container {
-    width: min(80vw, 80vh);
-    max-width: 600px;
+    width: min(90vw, 90vh, 600px);
     aspect-ratio: 1 / 1;
     display: grid;
     grid-template-columns: repeat(8, 1fr);
-    border-radius: 8px;
+    border-radius: 12px;
     overflow: hidden;
-    box-shadow: 0 1vh 3vh rgba(141, 110, 99, 0.3), 0 0 0 0.2vh rgba(255, 255, 255, 0.2);
+    border: 0.3vh solid rgba(141, 110, 99, 0.3);
     flex-shrink: 0;
-    border: 0.2vh solid rgba(141, 110, 99, 0.2);
+    animation: boardGlow 3s ease-in-out infinite;
+    transition: all 0.3s ease;
+    cursor: crosshair;
+  }
+
+  .board-container:hover {
+    transform: translateY(-2px);
+    animation-duration: 1.5s;
   }
 
   .right-panel-wrapper {
@@ -224,43 +213,150 @@ const Chessboard = ({
     flex-direction: column;
     gap: 1rem;
     flex-shrink: 0;
+    width: 300px;
   }
 
-  /* Media Queries */
+  /* Enhanced button and interactive element cursors */
+  button {
+    cursor: pointer !important;
+    transition: all 0.2s ease;
+  }
+
+  button:hover {
+    transform: translateY(-1px);
+  }
+
+  button:active {
+    transform: translateY(0);
+  }
+
+  input {
+    cursor: text !important;
+  }
+
+  .clickable {
+    cursor: pointer !important;
+  }
+
+  .draggable {
+    cursor: grab !important;
+  }
+
+  .draggable:active {
+    cursor: grabbing !important;
+  }
+
+  /* Media Queries for better mobile support */
+  @media (max-width: 1200px) {
+    .game-content-area {
+      gap: 1.5rem;
+    }
+    
+    .right-panel-wrapper {
+      width: 280px;
+    }
+  }
+
   @media (max-width: 1024px) {
     .main-layout {
       padding: 0.5rem;
     }
+    
     .game-content-area {
       flex-direction: column;
       align-items: center;
-      gap: 0.5rem;
+      gap: 1rem;
     }
+    
+    .board-section {
+      width: 100%;
+      max-width: none;
+    }
+    
     .board-container {
-      width: 95vw;
-      max-width: 95vw;
+      width: min(95vw, 95vh, 500px);
+      cursor: pointer;
     }
-    .player-card-container {
-      width: 95vw;
-      max-width: 95vw;
-      flex-direction: row;
-      justify-content: space-between;
-      padding: 0.5rem;
-    }
+    
     .right-panel-wrapper {
       width: 100%;
       max-width: 400px;
       align-items: center;
     }
   }
+
+  @media (max-width: 768px) {
+    .main-layout {
+      padding: 0.25rem;
+    }
+    
+    .game-content-area {
+      gap: 0.75rem;
+    }
+    
+    .board-container {
+      width: min(98vw, 98vh, 450px);
+      border-radius: 8px;
+    }
+    
+    .board-section {
+      gap: 0.75rem;
+    }
+  }
+
   @media (max-width: 600px) {
     .board-container {
-      width: 100%;
-      max-width: 100%;
+      width: min(100vw - 1rem, 100vh - 200px, 400px);
+      cursor: pointer;
     }
-    .player-card-container {
-      width: 100%;
-      max-width: 100%;
+    
+    .game-content-area {
+      gap: 0.5rem;
+    }
+    
+    .board-section {
+      gap: 0.5rem;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .main-layout {
+      padding: 0.125rem;
+    }
+    
+    .board-container {
+      width: min(100vw - 0.5rem, 100vh - 180px, 350px);
+      border-radius: 6px;
+    }
+  }
+
+  /* Landscape orientation adjustments */
+  @media (max-height: 600px) and (orientation: landscape) {
+    .game-content-area {
+      flex-direction: row;
+      gap: 1rem;
+    }
+    
+    .board-container {
+      width: min(70vh, 400px);
+    }
+    
+    .right-panel-wrapper {
+      width: 250px;
+    }
+    
+    .board-section {
+      gap: 0.5rem;
+    }
+  }
+
+  @media (max-height: 500px) and (orientation: landscape) {
+    .board-container {
+      width: min(60vh, 350px);
+    }
+    
+    .right-panel-wrapper {
+      width: 220px;
     }
   }
 `
@@ -311,22 +407,32 @@ const Chessboard = ({
 
         <div className="game-content-area">
           <div className="board-section">
-            {/* Top Player Card - Above Board */}
-            <div className="player-card-container top">
-              <PlayerCard name={engineName} isBot={true} isTop={true} capturedPieces={getPlayerCapturedPieces(true)} />
-              <Timer time={playAs === "w" ? blackTime : whiteTime} isActive={currentTurn !== playAs && !gameOver} />
-            </div>
+            {/* Top Player Card - Engine */}
+            <PlayerCard
+              name={engineName}
+              rating={engineRating}
+              isBot={true}
+              isTop={true}
+              capturedPieces={getPlayerCapturedPieces(true)}
+              time={playAs === "w" ? blackTime : whiteTime}
+              isActive={currentTurn !== playAs && !gameOver}
+            />
 
             {/* Chess Board */}
             <div className="board-container">
               {displayBoard.flat().map((pieceObj, i) => renderSquare(pieceObj, Math.floor(i / 8), i % 8))}
             </div>
 
-            {/* Bottom Player Card - Below Board */}
-            <div className="player-card-container bottom">
-              <PlayerCard name={username} isBot={false} isTop={false} capturedPieces={getPlayerCapturedPieces(false)} />
-              <Timer time={playAs === "w" ? whiteTime : blackTime} isActive={currentTurn === playAs && !gameOver} />
-            </div>
+            {/* Bottom Player Card - Player */}
+            <PlayerCard
+              name={username}
+              rating={userRating}
+              isBot={false}
+              isTop={false}
+              capturedPieces={getPlayerCapturedPieces(false)}
+              time={playAs === "w" ? whiteTime : blackTime}
+              isActive={currentTurn === playAs && !gameOver}
+            />
           </div>
 
           <div className="right-panel-wrapper">

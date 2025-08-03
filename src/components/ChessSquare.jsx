@@ -1,103 +1,167 @@
 "use client"
+import { memo } from "react"
 import { COLORS } from "../utils/colors"
 
-const ChessSquare = ({ square, pieceObj, isDark, isSelected, isCapture, isLegal, isInCheck, isLastMove, onClick }) => {
-  const pieceSymbols = {
-    wp: "♙",
-    wr: "♖",
-    wn: "♘",
-    wb: "♗",
-    wq: "♕",
-    wk: "♔",
-    bp: "♟",
-    br: "♜",
-    bn: "♞",
-    bb: "♝",
-    bq: "♛",
-    bk: "♚",
-  }
+const ChessSquare = memo(
+  ({ square, pieceObj, isDark, isSelected, isCapture, isLegal, isInCheck, isLastMove, onClick }) => {
+    const pieceImg = pieceObj
+      ? `https://chessboardjs.com/img/chesspieces/wikipedia/${pieceObj.color}${pieceObj.type.toUpperCase()}.png`
+      : null
 
-  const pieceSymbol = pieceObj ? pieceSymbols[`${pieceObj.color}${pieceObj.type}`] : ""
-  const pieceImg = pieceObj
-    ? `https://chessboardjs.com/img/chesspieces/wikipedia/${pieceObj.color}${pieceObj.type.toUpperCase()}.png`
-    : null
+    const classNames = [
+      "square",
+      isDark ? "dark" : "light",
+      isSelected ? "selected" : "",
+      isInCheck ? "in-check" : "",
+      isLastMove ? "last-move" : "",
+      isCapture ? "capture-target" : "",
+      isLegal ? "legal-move" : "",
+      pieceObj ? "has-piece" : "empty-square",
+    ]
+      .filter(Boolean)
+      .join(" ")
 
-  const classNames = [
-    "square",
-    isDark ? "dark" : "light",
-    isSelected ? "selected" : "",
-    isInCheck ? "in-check" : "",
-    isLastMove ? "last-move" : "",
-  ]
-    .filter(Boolean)
-    .join(" ")
-
-  const styles = `
+    const styles = `
     .square {
-      width: 100%; height: 100%;
-      display: flex; align-items: center; justify-content: center;
+      width: 100%; 
+      height: 100%;
+      display: flex; 
+      align-items: center; 
+      justify-content: center;
       position: relative;
       aspect-ratio: 1 / 1;
-      user-select: none; cursor: pointer;
-      transition: background-color 0.25s ease;
+      user-select: none; 
+      cursor: pointer;
+      transition: all 0.15s ease;
       box-sizing: border-box;
+      overflow: hidden;
     }
-    .dark { background-color: ${COLORS.squareDark}; }
-    .light { background-color: ${COLORS.squareLight}; }
-    .selected { outline: 3px solid ${COLORS.selectedBorder}; outline-offset: -3px; }
-    .in-check { background-color: ${COLORS.checkBg} !important; }
-    .last-move::after {
-      content: "";
-      position: absolute; top: 0; left: 0;
-      width: 100%; height: 100%;
-      background-color: ${COLORS.lastMoveBg};
-      border: 2px solid rgba(255, 215, 0, 0.3);
-      border-radius: 6px;
-      animation: pulse 1.2s ease-in-out infinite;
-      z-index: 1;
+    
+    .dark { 
+      background-color: ${COLORS.squareDark}; 
     }
-    @keyframes pulse {
-      0%, 100% { box-shadow: 0 0 5px rgba(255, 215, 0, 0.4); }
-      50% { box-shadow: 0 0 15px rgba(255, 215, 0, 0.6); }
+    .light { 
+      background-color: ${COLORS.squareLight}; 
     }
-    .piece {
-      width: 90%; height: 90%;
-      object-fit: contain;
-      pointer-events: none; user-select: none;
-      image-rendering: crisp-edges;
+    
+    .square:hover {
+      filter: brightness(1.05);
       z-index: 2;
-      position: relative;
     }
+    
+    .has-piece:hover {
+      cursor: grab;
+      transform: scale(1.02);
+    }
+    
+    .has-piece:active {
+      cursor: grabbing;
+      transform: scale(0.98);
+    }
+    
+    .empty-square:hover {
+      cursor: default;
+    }
+    
+    .legal-move:hover {
+      cursor: pointer;
+      background-color: rgba(76, 175, 80, 0.2) !important;
+    }
+    
+    .capture-target:hover {
+      cursor: pointer;
+      background-color: rgba(244, 67, 54, 0.2) !important;
+    }
+    
+    .selected { 
+      box-shadow: inset 0 0 0 3px ${COLORS.selectedBorder};
+      z-index: 5;
+    }
+    
+    .in-check { 
+      background-color: ${COLORS.checkBg} !important;
+      animation: checkPulse 1s ease-in-out infinite;
+    }
+    
+    @keyframes checkPulse {
+      0%, 100% { 
+        box-shadow: inset 0 0 0 2px rgba(244, 67, 54, 0.6);
+      }
+      50% { 
+        box-shadow: inset 0 0 0 4px rgba(244, 67, 54, 0.8);
+      }
+    }
+    
+    .last-move {
+      background-color: rgba(76, 175, 80, 0.3) !important;
+      box-shadow: inset 0 0 0 2px rgba(76, 175, 80, 0.6);
+    }
+    
+    .piece {
+      width: 85%; 
+      height: 85%;
+      object-fit: contain;
+      pointer-events: none; 
+      user-select: none;
+      z-index: 3;
+      position: relative;
+      transition: transform 0.15s ease;
+    }
+    
+    .has-piece:hover .piece {
+      transform: scale(1.05);
+    }
+    
+    .selected .piece {
+      transform: scale(1.1);
+    }
+    
     .dot {
       position: absolute;
-      width: 14px; height: 14px;
+      width: 16px; 
+      height: 16px;
       border-radius: 50%;
-      background-color: rgba(60, 40, 20, 0.4);
+      background: rgba(76, 175, 80, 0.7);
       z-index: 2;
+      pointer-events: none;
     }
+    
     .capture-ring {
       position: absolute;
-      width: 100%; height: 100%;
-      border: 3px solid rgba(239, 68, 68, 0.5);
-      border-radius: 6px;
-      box-sizing: border-box;
+      top: 2px;
+      left: 2px;
+      right: 2px;
+      bottom: 2px;
+      border: 2px solid rgba(244, 67, 54, 0.8);
+      border-radius: 4px;
       z-index: 2;
+      pointer-events: none;
     }
+    
     @media (max-width: 600px) {
-      .dot { width: 10px; height: 10px; }
+      .dot { 
+        width: 12px; 
+        height: 12px; 
+      }
+      .capture-ring {
+        border-width: 1px;
+      }
     }
   `
 
-  return (
-    <>
-      <style>{styles}</style>
-      <div className={classNames} onClick={onClick}>
-        {isLegal && <div className="dot" />}
-        {isCapture && <div className="capture-ring" />}
-        {pieceImg && <img src={pieceImg || "/placeholder.svg"} alt={pieceObj.type} className="piece" />}
-      </div>
-    </>
-  )
-}
+    return (
+      <>
+        <style>{styles}</style>
+        <div className={classNames} onClick={onClick}>
+          {isLegal && <div className="dot" />}
+          {isCapture && <div className="capture-ring" />}
+          {pieceImg && <img src={pieceImg || "/placeholder.svg"} alt={pieceObj.type} className="piece" />}
+        </div>
+      </>
+    )
+  },
+)
+
+ChessSquare.displayName = "ChessSquare"
 
 export default ChessSquare
