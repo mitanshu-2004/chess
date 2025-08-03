@@ -1,32 +1,84 @@
 "use client"
-import { Trophy, RotateCcw, Clock, Flag } from "lucide-react"
+import { Trophy, RotateCcw, Clock, Flag, HandHeart } from "lucide-react"
 import { COLORS } from "../utils/colors"
 
 const GameOverModal = ({ winner, wasAborted, ifTimeout, onPlayAgain, onClose }) => {
   const getResult = () => {
-    if (wasAborted)
-      return { title: "Game Resigned", message: "You resigned", icon: <Flag size={48} />, color: COLORS.danger }
-    if (ifTimeout)
-      return {
-        title: "Time's Up",
-        message: `${winner} wins by timeout`,
-        icon: <Clock size={48} />,
-        color: COLORS.accentMain,
+    console.log("🎯 Modal data:", { winner, wasAborted, ifTimeout })
+
+    // Handle forfeit/resignation cases
+    if (wasAborted) {
+      if (winner === "You") {
+        return { 
+          title: "Victory!", 
+          message: "Your opponent resigned", 
+          icon: <Trophy size={48} />, 
+          color: COLORS.accentMain 
+        }
+      } else if (winner === "Opponent") {
+        return { 
+          title: "Game Resigned", 
+          message: "You resigned", 
+          icon: <Flag size={48} />, 
+          color: COLORS.danger 
+        }
       }
-    if (winner === "Draw")
+    }
+
+    // Handle timeout cases
+    if (ifTimeout) {
+      if (winner === "You") {
+        return {
+          title: "Victory!",
+          message: "You win by timeout",
+          icon: <Clock size={48} />,
+          color: COLORS.accentMain,
+        }
+      } else if (winner === "Opponent") {
+        return {
+          title: "Time's Up",
+          message: "You lost on time",
+          icon: <Clock size={48} />,
+          color: COLORS.danger,
+        }
+      }
+    }
+
+    // Handle draw cases
+    if (winner === "Draw") {
       return {
         title: "Draw Game",
         message: "The game ended in a draw",
-        icon: <div className="text-4xl">🤝</div>,
+        icon: <HandHeart size={48} />,
         color: COLORS.textMuted,
       }
-    if (winner === "You")
-      return { title: "Victory!", message: "You won!", icon: <Trophy size={48} />, color: COLORS.accentMain }
+    }
+
+    // Handle regular wins/losses (checkmate, etc.)
+    if (winner === "You") {
+      return { 
+        title: "Victory!", 
+        message: "Checkmate! You won!", 
+        icon: <Trophy size={48} />, 
+        color: COLORS.accentMain 
+      }
+    }
+
+    if (winner === "Opponent") {
+      return {
+        title: "Game Over",
+        message: "Checkmate! Your opponent won.",
+        icon: <div className="text-4xl">😔</div>,
+        color: COLORS.textSecondary,
+      }
+    }
+
+    // Default fallback
     return {
       title: "Game Over",
-      message: "The engine won.",
-      icon: <div className="text-4xl">🤖</div>,
-      color: COLORS.textSecondary,
+      message: "The game has ended.",
+      icon: <div className="text-4xl">🏁</div>,
+      color: COLORS.textMuted,
     }
   }
 

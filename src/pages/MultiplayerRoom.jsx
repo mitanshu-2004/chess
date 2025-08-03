@@ -22,7 +22,7 @@ const MultiplayerRoom = () => {
   const [linkCopied, setLinkCopied] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
   const [connectionStatus, setConnectionStatus] = useState("connecting")
-  const [myReady, setMyReady] = useState(false) // New state for player's ready status
+  const [myReady, setMyReady] = useState(false)
 
   // Create roomRef only once and store in ref
   const roomRefRef = useRef(null)
@@ -30,9 +30,9 @@ const MultiplayerRoom = () => {
   const heartbeatRef = useRef(null)
   const reconnectTimeoutRef = useRef(null)
   const lastProcessedVersionRef = useRef(0)
-  const heartbeatStartedRef = useRef(false) // New ref to track if heartbeat has started
-  const isHostRef = useRef(false) // Add ref to track host status
-  const usernameRef = useRef(username) // Add ref for username
+  const heartbeatStartedRef = useRef(false)
+  const isHostRef = useRef(false)
+  const usernameRef = useRef(username)
 
   // Initialize roomRef only once
   useEffect(() => {
@@ -63,8 +63,7 @@ const MultiplayerRoom = () => {
       } catch (err) {
         console.error("Heartbeat failed:", err)
         setConnectionStatus("reconnecting")
-        
-        // Try to reconnect after a delay
+
         setTimeout(() => {
           if (heartbeatRef.current) {
             setConnectionStatus("connected")
@@ -72,7 +71,7 @@ const MultiplayerRoom = () => {
         }, 2000)
       }
     }, 5000)
-  }, []) // No dependencies needed since we use refs
+  }, [])
 
   // Enhanced connection monitoring
   const monitorConnection = useCallback(() => {
@@ -114,13 +113,13 @@ const MultiplayerRoom = () => {
   // Cleanup on unmount
   useEffect(() => {
     return cleanup
-  }, []) // Remove cleanup from dependencies to prevent infinite loops
+  }, [])
 
   useEffect(() => {
     setTimeout(() => setIsAnimating(true), 100)
     const cleanup = monitorConnection()
     return cleanup
-  }, []) // Remove monitorConnection from dependencies to prevent infinite loops
+  }, [])
 
   useEffect(() => {
     if (!username || !roomId) {
@@ -128,7 +127,6 @@ const MultiplayerRoom = () => {
       return
     }
 
-    // Prevent multiple setups for the same room
     if (roomRefRef.current && !loading) {
       return
     }
@@ -138,10 +136,10 @@ const MultiplayerRoom = () => {
         setConnectionStatus("connecting")
         const roomSnap = await getDoc(roomRefRef.current)
 
-        let currentIsHost = false // Local variable to determine host status
+        let currentIsHost = false
 
         if (!roomSnap.exists()) {
-          // Create new room
+          // Create new room with empty move history
           await setDoc(roomRefRef.current, {
             hostPlayer: username,
             guestPlayer: null,
@@ -157,30 +155,25 @@ const MultiplayerRoom = () => {
             guestReady: false,
             lastActivity: serverTimestamp(),
             version: 1,
+            moveHistory: [], // Initialize empty move history
           })
           currentIsHost = true
         } else {
           const data = roomSnap.data()
 
-          // Check if this user is already the host
           if (data.hostPlayer === username) {
             currentIsHost = true
             await updateDoc(roomRefRef.current, {
               hostLastSeen: serverTimestamp(),
               lastActivity: serverTimestamp(),
             })
-          } 
-          // Check if this user is already the guest
-          else if (data.guestPlayer === username) {
+          } else if (data.guestPlayer === username) {
             currentIsHost = false
             await updateDoc(roomRefRef.current, {
               guestLastSeen: serverTimestamp(),
               lastActivity: serverTimestamp(),
             })
-          } 
-          // Check if room has space for a new guest
-          else if (!data.guestPlayer) {
-            // Use transaction to prevent race conditions
+          } else if (!data.guestPlayer) {
             try {
               await updateDoc(roomRefRef.current, {
                 guestPlayer: username,
@@ -190,7 +183,6 @@ const MultiplayerRoom = () => {
               })
               currentIsHost = false
             } catch (err) {
-              // If update fails, room might have been filled by another player
               console.warn("Failed to join as guest, room might be full:", err)
               setError("Room is full or no longer available")
               setConnectionStatus("error")
@@ -199,16 +191,15 @@ const MultiplayerRoom = () => {
           } else {
             setError("Room is full")
             setConnectionStatus("error")
-            return // Exit early if room is full
+            return
           }
         }
 
-        isHostRef.current = currentIsHost // Set ref once
-        setIsHost(currentIsHost) // Also set state for UI reactivity
+        isHostRef.current = currentIsHost
+        setIsHost(currentIsHost)
         setLoading(false)
         setConnectionStatus("connected")
 
-        // Start heartbeat ONLY after host status is determined and room is set up
         if (!heartbeatStartedRef.current) {
           startHeartbeat()
           heartbeatStartedRef.current = true
@@ -221,10 +212,7 @@ const MultiplayerRoom = () => {
     }
 
     setupRoom()
-
-    // No specific cleanup needed here for the setupRoom async function itself
-    // The onSnapshot listener and heartbeat are cleaned up in the other useEffect
-  }, [roomId, username]) // Only include stable dependencies
+  }, [roomId, username])
 
   // Enhanced real-time listener with better error handling
   const setupRealtimeListener = useCallback(() => {
@@ -248,16 +236,15 @@ const MultiplayerRoom = () => {
             setHostColor(data.hostColor || "w")
             setConnectionStatus("connected")
 
-            // Update myReady state based on fetched room data
             if (isHostRef.current && data.hostPlayer === usernameRef.current) {
               setMyReady(data.hostReady || false)
             } else if (data.guestPlayer === usernameRef.current) {
               setMyReady(data.guestReady || false)
             }
 
-            // Check if game should start
             if (data.gameStarted && data.status === "playing") {
-              const playerColor = data.hostPlayer === usernameRef.current ? data.hostColor : data.hostColor === "w" ? "b" : "w"
+              const playerColor =
+                data.hostPlayer === usernameRef.current ? data.hostColor : data.hostColor === "w" ? "b" : "w"
               navigate(
                 `/play/${roomId}?username=${encodeURIComponent(usernameRef.current)}&color=${playerColor}&time=${data.timeControl}`,
               )
@@ -271,12 +258,9 @@ const MultiplayerRoom = () => {
       (error) => {
         console.error("Real-time listener error:", error)
         setConnectionStatus("error")
-
-        // Don't automatically reconnect - let the user handle it
-        // This prevents infinite reconnection loops
       },
     )
-  }, []) // No dependencies needed since we use refs
+  }, [])
 
   // Manual reconnection function
   const reconnect = useCallback(() => {
@@ -284,12 +268,11 @@ const MultiplayerRoom = () => {
     setConnectionStatus("connecting")
     setError("")
     setupRealtimeListener()
-  }, []) // No dependencies needed since setupRealtimeListener is stable
+  }, [])
 
   useEffect(() => {
     if (loading || error) return
 
-    // Prevent multiple listeners for the same room
     if (unsubscribeRef.current) {
       return
     }
@@ -304,12 +287,12 @@ const MultiplayerRoom = () => {
         clearTimeout(reconnectTimeoutRef.current)
       }
     }
-  }, [loading, error]) // Removed setupRealtimeListener from dependencies
+  }, [loading, error])
 
   // Toggle Ready State
   const toggleReady = async () => {
     const newReadyState = !myReady
-    setMyReady(newReadyState) // Optimistic update
+    setMyReady(newReadyState)
 
     try {
       const updateField = isHostRef.current ? "hostReady" : "guestReady"
@@ -320,7 +303,7 @@ const MultiplayerRoom = () => {
       })
     } catch (err) {
       console.error("Error toggling ready state:", err)
-      setMyReady(!newReadyState) // Revert on error
+      setMyReady(!newReadyState)
       alert("Failed to update ready status. Please try again.")
     }
   }
@@ -386,17 +369,16 @@ const MultiplayerRoom = () => {
   }
 
   const startGame = async () => {
-    // Game can only start if both players are present AND guest is ready
     if (!isHostRef.current) {
       console.log("❌ Only host can start the game")
       return
     }
-    
+
     if (!roomData?.guestPlayer) {
       console.log("❌ Waiting for opponent to join")
       return
     }
-    
+
     if (!roomData?.guestReady) {
       console.log("❌ Guest must be ready")
       return
@@ -404,7 +386,7 @@ const MultiplayerRoom = () => {
 
     try {
       console.log("🚀 Starting game...")
-      
+
       await updateDoc(roomRefRef.current, {
         status: "playing",
         gameStarted: true,
@@ -419,9 +401,10 @@ const MultiplayerRoom = () => {
         lastMoveTime: serverTimestamp(),
         gameStartedAt: serverTimestamp(),
         lastActivity: serverTimestamp(),
+        moveHistory: [], // Initialize empty move history for new game
         version: (roomData?.version || 0) + 1,
       })
-      
+
       console.log("✅ Game started successfully")
     } catch (err) {
       console.error("Error starting game:", err)
@@ -430,7 +413,7 @@ const MultiplayerRoom = () => {
   }
 
   const copyRoomLink = async () => {
-    const roomCode = roomId // Just copy the room code, not the full URL
+    const roomCode = roomId
     try {
       await navigator.clipboard.writeText(roomCode)
       setLinkCopied(true)
@@ -1252,8 +1235,8 @@ const MultiplayerRoom = () => {
             <div className="errorIcon">🚫</div>
             <div className="errorTitle">Oops! Something went wrong</div>
             <div className="errorMessage">{error}</div>
-            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-              <button onClick={reconnect} className="errorButton" style={{ backgroundColor: '#4CAF50' }}>
+            <div style={{ display: "flex", gap: "1rem", justifyContent: "center" }}>
+              <button onClick={reconnect} className="errorButton" style={{ backgroundColor: "#4CAF50" }}>
                 🔄 Try Again
               </button>
               <button onClick={() => navigate("/")} className="errorButton">
@@ -1298,17 +1281,17 @@ const MultiplayerRoom = () => {
           <div className="connectionStatus" style={{ color: statusDisplay.color }}>
             {statusDisplay.icon} {statusDisplay.text}
             {connectionStatus === "error" && (
-              <button 
-                onClick={reconnect} 
-                style={{ 
-                  marginLeft: '0.5rem', 
-                  padding: '0.2rem 0.5rem', 
-                  fontSize: '0.7rem', 
-                  backgroundColor: '#4CAF50', 
-                  color: 'white', 
-                  border: 'none', 
-                  borderRadius: '0.3rem', 
-                  cursor: 'pointer' 
+              <button
+                onClick={reconnect}
+                style={{
+                  marginLeft: "0.5rem",
+                  padding: "0.2rem 0.5rem",
+                  fontSize: "0.7rem",
+                  backgroundColor: "#4CAF50",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "0.3rem",
+                  cursor: "pointer",
                 }}
               >
                 🔄 Reconnect
@@ -1350,7 +1333,6 @@ const MultiplayerRoom = () => {
                     <span className="colorChip">{hostColor === "w" ? "♔" : "♚"}</span>
                     <span className="colorText">{hostColor === "w" ? "White" : "Black"}</span>
                   </div>
-                  {/* Host doesn't need ready status since they control the game start */}
                 </div>
               </div>
 
@@ -1425,11 +1407,10 @@ const MultiplayerRoom = () => {
           <div className="actionSection">
             {roomData?.guestPlayer ? (
               <>
-                {/* Only show ready button for guest, not host */}
                 {!isHostRef.current && (
                   <button
                     onClick={toggleReady}
-                    disabled={!roomData?.guestPlayer} // Disable if no guest yet
+                    disabled={!roomData?.guestPlayer}
                     className={`readyButton ${myReady ? "" : "notReady"}`}
                   >
                     <div className="startButtonContent">

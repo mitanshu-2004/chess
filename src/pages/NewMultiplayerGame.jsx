@@ -735,22 +735,60 @@ const NewMultiplayerGame = () => {
   const opponentColor = playerColor === "w" ? "b" : "w"
   const myColor = playerColor
 
+  // FIXED: Proper game ending detection for modal
   const getWinnerForModal = () => {
-    if (roomInfo?.forfeited) {
-      return roomInfo.forfeitedBy === playerColor ? "You" : "Opponent"
+    console.log("🎯 Getting winner for modal:", {
+      roomInfo: roomInfo,
+      forfeited: roomInfo?.forfeited,
+      forfeitedBy: roomInfo?.forfeitedBy,
+      playerColor: playerColor,
+      timeoutWinner: roomInfo?.timeoutWinner,
+      gameStateWinner: gameState.winner
+    })
+
+    // Handle forfeit/resignation
+    if (roomInfo?.forfeited && roomInfo?.forfeitedBy) {
+      if (roomInfo.forfeitedBy === playerColor) {
+        return "Opponent" // I forfeited, so opponent wins
+      } else {
+        return "You" // Opponent forfeited, so I win
+      }
     }
+
+    // Handle timeout
     if (roomInfo?.timeoutWinner) {
-      return roomInfo.winner === (playerColor === "w" ? "White" : "Black") ? "You" : "Opponent"
+      // roomInfo.winner contains "White" or "Black"
+      const winnerColor = roomInfo.winner
+      if (winnerColor === "White") {
+        return playerColor === "w" ? "You" : "Opponent"
+      } else if (winnerColor === "Black") {
+        return playerColor === "b" ? "You" : "Opponent"
+      }
     }
-    if (gameState.winner === "Draw") return "Draw"
-    if (gameState.winner === (playerColor === "w" ? "White" : "Black")) return "You"
-    return "Opponent"
+
+    // Handle regular game endings (checkmate, stalemate, etc.)
+    if (gameState.winner === "Draw") {
+      return "Draw"
+    }
+    
+    if (gameState.winner === "White") {
+      return playerColor === "w" ? "You" : "Opponent"
+    }
+    
+    if (gameState.winner === "Black") {
+      return playerColor === "b" ? "You" : "Opponent"
+    }
+
+    // Default fallback
+    return "Draw"
   }
 
+  // FIXED: Proper forfeit detection
   const getWasAbortedForModal = () => {
     return roomInfo?.forfeited || false
   }
 
+  // FIXED: Proper timeout detection
   const getIfTimeoutForModal = () => {
     return roomInfo?.timeoutWinner || false
   }
