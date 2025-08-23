@@ -1,4 +1,6 @@
 "use client"
+import { useEffect, useState } from "react"
+import { useLocation } from "react-router-dom"
 import PlayerCard from "../components/PlayerCard"
 import ChessSquare from "../components/ChessSquare"
 import MoveHistory from "../components/MoveHistory"
@@ -8,12 +10,23 @@ import useChessGame from "../hooks/useChessGame"
 import { COLORS } from "../utils/colors"
 
 const Chessboard = ({
-  username = "mitanshu",
+  username: defaultUsername = "mitanshu",
   engineName = "Stockfish",
   userRating = 1095,
   engineRating = 1500,
   gameType = "Chess vs Engine",
 }) => {
+  const location = useLocation()
+  const [username, setUsername] = useState(defaultUsername)
+
+  useEffect(() => {
+    const urlParams = new URLSearchParams(location.search)
+    const usernameFromUrl = urlParams.get("username")
+    if (usernameFromUrl) {
+      setUsername(usernameFromUrl)
+    }
+  }, [location.search])
+
   const {
     gameStarted,
     playAs,
