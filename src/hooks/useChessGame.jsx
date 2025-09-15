@@ -80,7 +80,7 @@ const useChessGame = () => {
 
   useEffect(() => {
     setCapturedPieces(calculateCapturedPieces(game.board()))
-  }, [game, calculateCapturedPieces])
+  }, [game.fen(), calculateCapturedPieces])
 
   // Improved timer with better performance
   useEffect(() => {

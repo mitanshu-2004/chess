@@ -3,15 +3,10 @@ import { memo } from "react"
 import { COLORS } from "../utils/colors"
 
 const ChessSquare = memo(
-  ({ pieceObj, isDark, isSelected, isCapture, isLegal, isInCheck, isLastMove, onClick }) => {
-    const getPieceSymbol = (piece) => {
-      if (!piece) return "";
-      const symbols = {
-        w: { p: "♙", n: "♘", b: "♗", r: "♖", q: "♕", k: "♔" },
-        b: { p: "♟", n: "♞", b: "♝", r: "♜", q: "♛", k: "♚" },
-      };
-      return symbols[piece.color][piece.type] || "";
-    };
+  ({ square, pieceObj, isDark, isSelected, isCapture, isLegal, isInCheck, isLastMove, onClick }) => {
+    const pieceImg = pieceObj
+      ? `https://chessboardjs.com/img/chesspieces/wikipedia/${pieceObj.color}${pieceObj.type.toUpperCase()}.png`
+      : null
 
     const classNames = [
       "square",
@@ -103,8 +98,9 @@ const ChessSquare = memo(
     }
     
     .piece {
-      font-size: 3.5rem; /* Adjust size as needed */
-      line-height: 1;
+      width: 85%; 
+      height: 85%;
+      object-fit: contain;
       pointer-events: none; 
       user-select: none;
       z-index: 3;
@@ -159,7 +155,7 @@ const ChessSquare = memo(
         <div className={classNames} onClick={onClick}>
           {isLegal && <div className="dot" />}
           {isCapture && <div className="capture-ring" />}
-          {pieceObj && <span className="piece">{getPieceSymbol(pieceObj)}</span>}
+          {pieceImg && <img src={pieceImg || "/placeholder.svg"} alt={pieceObj.type} className="piece" />}
         </div>
       </>
     )

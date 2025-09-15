@@ -2,7 +2,7 @@
 
 // Timer component is now integrated into PlayerCard
 // This file is kept for backward compatibility but the component is no longer used
-const Timer = () => {
+const Timer = ({ time, isActive }) => {
   return null
 }
 

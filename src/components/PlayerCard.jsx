@@ -2,8 +2,30 @@
 import { User } from "lucide-react"
 import { COLORS } from "../utils/colors"
 
-const PlayerCard = ({ name, rating, isBot, capturedPieces = [], time, isActive }) => {
+const PlayerCard = ({ name, rating, color, isBot, isTop, capturedPieces = [], time, isActive }) => {
+  // Piece values for material calculation
+  const pieceValues = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 }
+
+  // Piece symbols for display - showing opponent pieces with their original colors
+  const pieceSymbols = {
+    // White pieces (opponent pieces if I'm black)
+    wp: "♙",
+    wr: "♖",
+    wn: "♘",
+    wb: "♗",
+    wq: "♕",
+    wk: "♔",
+    // Black pieces (opponent pieces if I'm white)
+    bp: "♟",
+    br: "♜",
+    bn: "♞",
+    bb: "♝",
+    bq: "♛",
+    bk: "♚",
+  }
+
   // Calculate material advantage
+  const materialValue = capturedPieces.reduce((sum, piece) => sum + pieceValues[piece], 0)
 
   // Group captured pieces by type for better display
   const groupedPieces = capturedPieces.reduce((acc, piece) => {

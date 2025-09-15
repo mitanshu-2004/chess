@@ -29,10 +29,13 @@ const NewMultiplayerGame = () => {
     lastMove,
     roomInfo,
     isGameStarted,
+    isMyTurn,
     timeLeft,
+    opponentConnected,
     handleSquareClick,
     forfeitGame,
     resetGame,
+    getGameStatusMessage,
   } = useRealtimeChess(roomId, playerColor, username, selectedTime)
 
   // Validate required parameters
@@ -631,6 +634,13 @@ const NewMultiplayerGame = () => {
     }
   `
 
+  // Convert square name to file/rank indices
+  const squareToIndices = (square) => {
+    const file = square.charCodeAt(0) - 97
+    const rank = Number.parseInt(square[1]) - 1
+    return { file, rank }
+  }
+
   // Convert file/rank indices to square name
   const indicesToSquare = (file, rank) => {
     return String.fromCharCode(97 + file) + (rank + 1)
@@ -712,6 +722,12 @@ const NewMultiplayerGame = () => {
       console.error("❌ Failed to reset game:", error)
       alert("Failed to reset game. Please try again.")
     }
+  }
+
+  const handleCloseGameOverModal = () => {
+    // Optionally navigate away or just close the modal
+    // For now, we'll just let the game state handle it.
+    // If you want to force navigation, uncomment: navigate("/");
   }
 
   const displayBoard = createDisplayBoard()
