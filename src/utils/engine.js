@@ -9,7 +9,7 @@ export async function getBestMoveFromStockfish(fen, callback) {
   console.log("📤 Sending FEN to backend:", fen);
   try {
     const response = await axios.post(
-      import.meta.env.VITE_API,  // ✅ Updated URL
+      `${import.meta.env.VITE_API}/api/bestmove`,  // ✅ Updated URL
       { fen },
       { headers: { "Content-Type": "application/json" } }
     );
