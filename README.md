@@ -1,12 +1,26 @@
-# React + Vite
+# Chess Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This project is the frontend for a chess application.
 
-Currently, two official plugins are available:
+## Demo
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+A live demo of the project is available here: [https://chesstra.vercel.app/](https://chesstra.vercel.app/)
 
-## Expanding the ESLint configuration
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Technologies
+
+*   **React:** JavaScript library for building user interfaces.
+*   **Vite:** Fast build tool for modern web projects.
+*   **React Router DOM:** Declarative routing for React.
+*   **Axios:** Promise-based HTTP client for API requests.
+*   **Chess.js:** JavaScript chess library for game logic.
+*   **Firebase:** (Potentially) for multiplayer features (Firestore).
+*   **Lucide React:** Icon library.
+
+## Methodologies
+
+*   **Component-Based Architecture:** UI built with reusable React components.
+*   **Custom Hooks:** Encapsulation of reusable stateful logic.
+*   **Environment Variables:** Configuration management for API keys and URLs.
+*   **Modular Styling:** Centralized color palette (`colors.js`) and inline CSS for component-specific styles.
+*   **Responsive Design:** Media queries for adaptability across devices.
