@@ -144,14 +144,13 @@ const Chessboard = ({
     padding: 0;
     height: 100%;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(120deg, #f2e9e4 0%, #d8cfc4 50%, #f9f4ef 100%);
     cursor: default;
   }
 
   .main-layout {
     display: flex;
     flex-direction: column;
-    min-height: 100vh;
+    min-height: 100%; /* Changed from 100vh */
     width: 100%;
     background: linear-gradient(120deg, #f2e9e4 0%, #d8cfc4 50%, #f9f4ef 100%);
     color: ${COLORS.textPrimary};

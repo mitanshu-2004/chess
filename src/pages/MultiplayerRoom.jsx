@@ -20,7 +20,6 @@ const MultiplayerRoom = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [linkCopied, setLinkCopied] = useState(false)
-  const [isAnimating, setIsAnimating] = useState(false)
   const [connectionStatus, setConnectionStatus] = useState("connecting")
   const [myReady, setMyReady] = useState(false)
 
@@ -116,7 +115,6 @@ const MultiplayerRoom = () => {
   }, [])
 
   useEffect(() => {
-    setTimeout(() => setIsAnimating(true), 100)
     const cleanup = monitorConnection()
     return cleanup
   }, [])
@@ -442,6 +440,21 @@ const MultiplayerRoom = () => {
   }
 
   const customStyles = `
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      min-height: 100%;
+      box-sizing: border-box; /* Ensure consistent box model */
+      position: fixed; /* Force to cover entire viewport */
+      top: 0;
+      left: 0;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box; /* Apply globally */
+    }
+
     @keyframes float {
       0%, 100% { transform: translateY(0) rotate(0deg); }
       25% { transform: translateY(-1vh) rotate(3deg); }
@@ -473,19 +486,23 @@ const MultiplayerRoom = () => {
     .waitingDot:nth-child(2) { animation-delay: -0.16s; }
     .waitingDot:nth-child(3) { animation-delay: 0s; }
 
-    .wrapper {
-      height: 100vh;
-      width: 100vw;
-      background: linear-gradient(120deg, ${COLORS.bgLight1} 0%, ${COLORS.bgLight2} 50%, ${COLORS.bgLight1} 100%);
+    .setup {
+      height: 100%; /* Changed from 100vh */
+      width: 100%; /* Changed from 100vw */
+      background: linear-gradient(120deg, #f2e9e4 0%, #d8cfc4 50%, #f9f4ef 100%);
       display: flex;
-      align-items: center;
+      align-items: flex-start; /* Align items to the top */
       justify-content: center;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      position: relative;
+      padding: 2rem 1rem; /* Added padding-top and padding-bottom */
+      position: absolute; /* Changed from relative */
+      top: 0;
+      left: 0;
       overflow: hidden;
-      box-sizing: border-box;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      overflow-y: auto; /* Added to handle vertical overflow */
     }
-    .backgroundElements {
+
+    .background-elements {
       position: absolute;
       top: 0;
       left: 0;
@@ -494,85 +511,183 @@ const MultiplayerRoom = () => {
       pointer-events: none;
       z-index: 0;
     }
-    .floatingPiece {
+
+    .floating-piece {
       position: absolute;
       font-size: clamp(1.5rem, 3vw, 2.5rem);
       opacity: 0.1;
-      color: ${COLORS.textLight};
+      color: #8d6e63;
       animation: float 8s ease-in-out infinite;
     }
-    .container {
+
+    .panel {
       background: rgba(252, 248, 243, 0.95);
-      backdrop-filter: blur(1vh);
-      border-radius: 1.5vh;
-      padding: 1.5vh 2vw;
-      box-shadow: 0 1vh 3vh rgba(141, 110, 99, 0.2), 0 0 0 0.1vh rgba(255, 255, 255, 0.3);
-      width: clamp(35rem, 85vw, 80rem);
-      height: clamp(50rem, 85vh, 70rem);
+      backdrop-filter: blur(10px);
+      padding: 2rem;
+      border-radius: 1.5rem;
+      max-width: 50%; /* Adjusted for PC screens */
+      width: 50%; /* Adjusted for PC screens */
+      box-shadow: 0 0.625rem 1.875rem rgba(141, 110, 99, 0.2), 0 0 0 0.0625rem rgba(255, 255, 255, 0.3); /* Converted from vh */
+      border: 0.0625rem solid #efebe9; /* Converted from 0.1vh */
       position: relative;
       z-index: 1;
-      transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
-      border: 0.1vh solid ${COLORS.bgLight2};
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
+      overflow-y: auto;
     }
+
+    .header {
+      text-align: center;
+      margin-bottom: 1.5rem; /* Converted from 2rem */
+    }
+
+    .header .icon {
+      font-size: clamp(2rem, 3rem, 3rem); /* Adjusted clamp values */
+      color: #8d6e63;
+      text-shadow: 0 0.1875rem 0.375rem rgba(141, 110, 99, 0.3); /* Converted from 0.3vh 0.6vh */
+      animation: glow 3s ease-in-out infinite alternate;
+      margin-bottom: 0.3125rem; /* Converted from 0.5rem */
+      display: block;
+    }
+
+    .header h2 {
+      font-size: clamp(1.8rem, 2.5rem, 2.5rem); /* Adjusted clamp values */
+      font-weight: 900;
+      margin: 0 0 0.3125rem 0; /* Converted from 0.5rem */
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+      color: #8d6e63;
+      text-shadow: 0 0.0625rem 0.1875rem rgba(141, 110, 99, 0.3); /* Converted from 0.1vh 0.3vh */
+    }
+
+    .header p {
+      font-size: clamp(0.8rem, 1.125rem, 1rem); /* Adjusted clamp values */
+      color: #5d4037;
+      font-weight: 500;
+      margin: 0;
+      line-height: 1.4;
+      font-style: italic;
+    }
+
+    .options-grid {
+      display: grid;
+      gap: 0.75rem; /* Slightly reduced gap */
+      margin-bottom: 1.5rem; /* Adjusted margin */
+    }
+
+    .color-options {
+      grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); /* Reduced min width */
+    }
+
+    .time-options {
+      grid-template-columns: repeat(auto-fit, minmax(70px, 1fr)); /* Reduced min width */
+    }
+
+    .card {
+      border: 0.125rem solid rgba(141, 110, 99, 0.3);
+      padding: 0.6rem; /* Reduced padding */
+      border-radius: 0.75rem;
+      text-align: center;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      background: rgba(255, 255, 255, 0.9);
+      cursor: pointer;
+      color: ${COLORS.textPrimary};
+      box-shadow: 0 0.1875rem 0.625rem rgba(141, 110, 99, 0.2);
+    }
+
+    .card:hover {
+      border-color: #8d6e63;
+      box-shadow: 0 0.3125rem 0.9375rem rgba(141, 110, 99, 0.3);
+      transform: translateY(-0.125rem);
+    }
+
+    .card.selected {
+      border-color: #8d6e63;
+      box-shadow: 0 0 0 0.125rem rgba(141, 110, 99, 0.2), 0 0.5rem 0.9375rem rgba(141, 110, 99, 0.3);
+      background: linear-gradient(135deg, rgba(141, 110, 99, 0.1) 0%, rgba(109, 76, 65, 0.15) 100%);
+      transform: translateY(-0.125rem) scale(1.02);
+    }
+
+    .card div {
+      font-weight: 600;
+      margin-bottom: 0.1rem; /* Reduced margin */
+      font-size: 0.85rem; /* Slightly reduced font size */
+    }
+
+    .card small {
+      color: ${COLORS.textSecondary};
+      font-size: 0.7rem; /* Slightly reduced font size */
+    }
+
+    @media (min-width: 769px) {
+      .settings-options-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    .card.selected small {
+      color: ${COLORS.textPrimary};
+    }
+
+    .start-btn {
+      width: 100%;
+      padding: 0.75rem; /* Converted from 1.2rem */
+      border: none;
+      background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
+      color: white;
+      font-weight: bold;
+      font-size: 1rem;
+      border-radius: 0.75rem; /* Converted from 1.2rem */
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 0.375rem 1.125rem rgba(76, 175, 80, 0.3); /* Converted from 0.6vh 1.8vh */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.3125rem; /* Converted from 0.5rem */
+      position: relative;
+      overflow: hidden;
+    }
+
+    .start-btn:hover {
+      box-shadow: 0 0.5rem 1.25rem rgba(76, 175, 80, 0.4); /* Converted from 0.8vh 2vh */
+      transform: translateY(-0.125rem) scale(1.02); /* Converted from -2px */
+    }
+
+    .start-btn:disabled {
+      background: linear-gradient(135deg, #bbb 0%, #999 100%);
+      cursor: not-allowed;
+      box-shadow: 0 0.1875rem 0.625rem rgba(0, 0, 0, 0.2); /* Converted from 0.3vh 1vh */
+      transform: none;
+    }
+
     .connectionStatus {
       position: absolute;
-      top: 1vh;
-      right: 1.5vw;
+      top: 1rem;
+      right: 1.5rem;
       display: flex;
       flex-direction: column;
       align-items: flex-end;
-      gap: 0.3vh;
+      gap: 0.3rem;
       font-size: clamp(0.6rem, 1.2vw, 0.8rem);
       font-weight: 600;
       z-index: 10;
     }
-    .header {
-      text-align: center;
-      margin-bottom: 1vh;
-      flex-shrink: 0;
-    }
-    .headerIcon {
-      font-size: clamp(2rem, 4vw, 3rem);
-      color: ${COLORS.textLight};
-      text-shadow: 0 0.3vh 0.6vh rgba(141, 110, 99, 0.3);
-      animation: glow 3s ease-in-out infinite alternate;
-      margin-bottom: 0.5vh;
-      display: block;
-    }
-    .title {
-      font-size: clamp(1.8rem, 4vw, 2.5rem);
-      font-weight: 900;
-      margin: 0 0 0.5vh 0;
-      letter-spacing: -0.02em;
-      line-height: 1.1;
-    }
-    .titleMain {
-      color: ${COLORS.textLight};
-      text-shadow: 0 0.1vh 0.3vh rgba(141, 110, 99, 0.3);
-    }
-    .titleAccent {
-      color: ${COLORS.bgDark};
-      margin-left: 0.5vw;
-    }
+
     .roomCard {
       background: linear-gradient(135deg, rgba(141, 110, 99, 0.1) 0%, rgba(109, 76, 65, 0.15) 100%);
-      border-radius: 1vh;
-      padding: 1vh 1.5vw;
-      margin-bottom: 1vh;
-      border: 0.1vh solid rgba(141, 110, 99, 0.2);
-      box-shadow: 0 0.5vh 1vh rgba(141, 110, 99, 0.1);
+      border-radius: 0.75rem;
+      padding: 1rem 1.5rem;
+      margin-bottom: 1rem;
+      border: 0.0625rem solid rgba(141, 110, 99, 0.2);
+      box-shadow: 0 0.3125rem 0.625rem rgba(141, 110, 99, 0.1);
       flex-shrink: 0;
     }
     .roomHeader {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 0.5vh;
+      margin-bottom: 0.5rem;
       flex-wrap: wrap;
-      gap: 0.5vh;
+      gap: 0.5rem;
     }
     .roomIdSection {
       display: flex;
@@ -582,7 +697,7 @@ const MultiplayerRoom = () => {
       font-size: clamp(0.6rem, 1.4vw, 0.8rem);
       color: ${COLORS.textMuted};
       font-weight: 600;
-      margin-bottom: 0.2vh;
+      margin-bottom: 0.2rem;
       text-transform: uppercase;
       letter-spacing: 0.1em;
     }
@@ -592,77 +707,92 @@ const MultiplayerRoom = () => {
       color: ${COLORS.bgDark};
       font-family: monospace;
       letter-spacing: 0.15em;
-      text-shadow: 0 0.1vh 0.2vh rgba(78, 52, 46, 0.2);
+      text-shadow: 0 0.0625rem 0.125rem rgba(78, 52, 46, 0.2);
     }
     .copyButton {
-      padding: 0.8vh 1.2vw;
+      padding: 0.5rem 0.8rem;
       background: linear-gradient(135deg, ${COLORS.info} 0%, ${COLORS.infoDark} 100%);
       color: ${COLORS.textWhite};
       border: none;
-      border-radius: 1vh;
+      border-radius: 0.5rem;
       font-size: clamp(0.6rem, 1.4vw, 0.8rem);
       font-weight: 600;
       cursor: pointer;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       display: flex;
       align-items: center;
-      gap: 0.3vw;
-      box-shadow: 0 0.3vh 1vh rgba(33, 150, 243, 0.3);
+      gap: 0.3rem;
+      box-shadow: 0 0.1875rem 0.625rem rgba(33, 150, 243, 0.3);
       white-space: nowrap;
     }
     .copyButtonSuccess {
       background: linear-gradient(135deg, ${COLORS.success} 0%, ${COLORS.successDark} 100%);
-      box-shadow: 0 0.3vh 1vh rgba(76, 175, 80, 0.3);
+      box-shadow: 0 0.1875rem 0.625rem rgba(76, 175, 80, 0.3);
     }
     .shareHint {
-      font-size: clamp(0.6rem, 1.4vw, 0.8rem);
-      color: ${COLORS.textMuted};
-      text-align: center;
-      font-style: italic;
+      font-size: clamp(0.8rem, 1.125rem, 1rem);
+      color: #5d4037;
+      font-weight: 500;
+      margin: 0;
       line-height: 1.4;
+      font-style: italic;
+      text-align: center;
     }
+
     .playersSection {
-      margin-bottom: 1vh;
+      margin-bottom: 1rem;
       flex-shrink: 0;
     }
     .playersArena {
       display: flex;
       align-items: center;
-      gap: 1vw;
+      gap: 1rem;
       justify-content: center;
       flex-wrap: wrap;
     }
     .playerCard {
       background: rgba(255, 255, 255, 0.9);
-      border-radius: 1vh;
-      padding: 1vh 1vw;
+      border-radius: 0.75rem;
+      padding: 1rem;
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 0.8vh;
+      gap: 0.5rem;
       min-width: clamp(14rem, 20vw, 18rem);
-      border: 0.1vh solid rgba(0, 0, 0, 0.08);
-      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-      box-shadow: 0 0.5vh 1vh rgba(0, 0, 0, 0.1);
+      border: 0.125rem solid rgba(141, 110, 99, 0.3); /* Converted from 0.1vh */
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 0.1875rem 0.625rem rgba(141, 110, 99, 0.2); /* Converted from 0.5vh 1vh */
     }
     .playerCardActive {
-      border-color: ${COLORS.textLight};
-      box-shadow: 0 0 0 0.2vh rgba(141, 110, 99, 0.2), 0 0.8vh 1.5vh rgba(141, 110, 99, 0.2);
-      transform: translateY(-0.2vh);
+      border-color: #8d6e63;
+      box-shadow: 0 0 0 0.125rem rgba(141, 110, 99, 0.2), 0 0.5rem 0.9375rem rgba(141, 110, 99, 0.3); /* Converted from 0.2vh 0.8vh 1.5vh */
+      transform: translateY(-0.125rem) scale(1.02); /* Converted from -2px */
     }
     .playerCardHost {
       background: linear-gradient(135deg, rgba(76, 175, 80, 0.1) 0%, rgba(67, 160, 71, 0.15) 100%);
     }
     .playerCardWaiting {
-      opacity: 0.7;
-      background: rgba(0, 0, 0, 0.05);
+      opacity: 0.9; /* Increased opacity */
+      background: rgba(255, 255, 255, 0.6); /* Lighter background */
+      border: 0.125rem dashed ${COLORS.textMuted}; /* Dashed border for awaiting state */
+      box-shadow: none; /* Remove shadow for awaiting state */
+    }
+    .playerCardWaiting .playerAvatarIcon {
+      color: ${COLORS.textMuted}; /* Muted icon color */
+      background: linear-gradient(135deg, ${COLORS.bgLight1} 0%, ${COLORS.bgLight2} 100%);
+    }
+    .playerCardWaiting .playerName {
+      color: ${COLORS.textMuted}; /* Muted text color */
+    }
+    .playerCardWaiting .playerColorInfo {
+      opacity: 0.5; /* Muted color info */
     }
     .playerAvatar {
       position: relative;
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 0.5vh;
+      gap: 0.3rem;
     }
     .playerAvatarIcon {
       font-size: clamp(1.5rem, 3vw, 2rem);
@@ -674,14 +804,14 @@ const MultiplayerRoom = () => {
       align-items: center;
       justify-content: center;
       color: ${COLORS.textWhite};
-      box-shadow: 0 0.5vh 1vh rgba(141, 110, 99, 0.3);
-      border: 0.2vh solid rgba(255, 255, 255, 0.3);
+      box-shadow: 0 0.3125rem 0.625rem rgba(141, 110, 99, 0.3);
+      border: 0.125rem solid rgba(255, 255, 255, 0.3);
     }
     .playerStatusBadge {
-      backgroundColor: ${COLORS.bgDark};
+      background-color: ${COLORS.bgDark};
       color: ${COLORS.textWhite};
-      padding: 0.3vh 0.8vw;
-      border-radius: 0.5vh;
+      padding: 0.2rem 0.5rem;
+      border-radius: 0.3rem;
       font-size: clamp(0.5rem, 1.2vw, 0.7rem);
       font-weight: 700;
       letter-spacing: 0.05em;
@@ -695,15 +825,15 @@ const MultiplayerRoom = () => {
       font-size: clamp(0.8rem, 1.8vw, 1rem);
       font-weight: 700;
       color: ${COLORS.bgDark};
-      margin-bottom: 0.5vh;
+      margin-bottom: 0.3rem;
       line-height: 1.2;
     }
     .playerColorInfo {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 0.5vw;
-      margin-bottom: 0.5vh;
+      gap: 0.3rem;
+      margin-bottom: 0.3rem;
     }
     .colorChip {
       font-size: clamp(0.8rem, 1.6vw, 1rem);
@@ -723,7 +853,7 @@ const MultiplayerRoom = () => {
       font-weight: 600;
       display: flex;
       align-items: center;
-      gap: 0.3vw;
+      gap: 0.3rem;
       color: ${COLORS.success};
     }
     .playerNotReadyStatus {
@@ -731,14 +861,14 @@ const MultiplayerRoom = () => {
       font-weight: 600;
       display: flex;
       align-items: center;
-      gap: 0.3vw;
+      gap: 0.3rem;
       color: ${COLORS.danger};
     }
     .vsDivider {
       display: flex;
       align-items: center;
       justify-content: center;
-      margin: 0 0.5vw;
+      margin: 0 0.5rem;
     }
     .vsCircle {
       width: clamp(3.5rem, 7vw, 5rem);
@@ -751,7 +881,7 @@ const MultiplayerRoom = () => {
       color: ${COLORS.textWhite};
       font-weight: 900;
       font-size: clamp(0.8rem, 1.8vw, 1rem);
-      box-shadow: 0 0.5vh 1vh rgba(255, 107, 107, 0.4);
+      box-shadow: 0 0.3125rem 0.625rem rgba(255, 107, 107, 0.4);
       position: relative;
       animation: pulse 2s ease-in-out infinite;
     }
@@ -761,45 +891,61 @@ const MultiplayerRoom = () => {
     }
     .vsGlow {
       position: absolute;
-      top: -0.3vh;
-      left: -0.3vh;
-      right: -0.3vh;
-      bottom: -0.3vh;
+      top: -0.1875rem;
+      left: -0.1875rem;
+      right: -0.1875rem;
+      bottom: -0.1875rem;
       border-radius: 50%;
       background: linear-gradient(135deg, rgba(255, 107, 107, 0.3), rgba(238, 90, 36, 0.3));
-      filter: blur(0.3vh);
+      filter: blur(0.1875rem);
       animation: glow 2s ease-in-out infinite alternate;
     }
     .settingsSection {
-      margin-bottom: 1vh;
+      margin-bottom: 1rem;
       flex: 1 1 auto;
       min-height: 0;
       overflow: auto;
     }
     .settingsGrid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
-      gap: 1vh;
+      grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+      gap: 1rem;
     }
     .settingCard {
+      border: 0.125rem solid rgba(141, 110, 99, 0.3); /* Converted from 2px */
+      padding: 1rem;
+      border-radius: 0.75rem; /* Converted from 12px */
+      text-align: center;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       background: rgba(255, 255, 255, 0.9);
-      border-radius: 1vh;
-      padding: 1vh 1.5vw;
-      border: 0.1vh solid rgba(141, 110, 99, 0.1);
-      box-shadow: 0 0.5vh 1vh rgba(141, 110, 99, 0.1);
-      transition: all 0.3s ease;
+      cursor: pointer;
+      color: ${COLORS.textPrimary};
+      box-shadow: 0 0.1875rem 0.625rem rgba(141, 110, 99, 0.2); /* Converted from 0.3vh 1vh */
+    }
+    .settingCard:hover {
+      border-color: #8d6e63;
+      box-shadow: 0 0.3125rem 0.9375rem rgba(141, 110, 99, 0.3); /* Converted from 0.5vh 1.5vh */
+      transform: translateY(-0.125rem); /* Converted from -2px */
+    }
+    .settingCard.selected {
+      border-color: #8d6e63;
+      box-shadow: 0 0 0 0.125rem rgba(141, 110, 99, 0.2), 0 0.5rem 0.9375rem rgba(141, 110, 99, 0.3); /* Converted from 0.2vh 0.8vh 1.5vh */
+      background: linear-gradient(135deg, rgba(141, 110, 99, 0.1) 0%, rgba(109, 76, 65, 0.15) 100%);
+      transform: translateY(-0.125rem) scale(1.02); /* Converted from -2px */
     }
     .settingHeader {
       display: flex;
       align-items: center;
-      gap: 0.8vw;
-      margin-bottom: 1vh;
+      justify-content: center;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
     }
     .settingIcon {
-      font-size: clamp(0.9rem, 2vw, 1.2rem);
+      font-size: clamp(1.2rem, 2vw, 1.5rem);
+      color: ${COLORS.textPrimary};
     }
     .settingLabel {
-      font-size: clamp(0.7rem, 1.6vw, 0.9rem);
+      font-size: clamp(0.8rem, 1.6vw, 1rem);
       font-weight: 700;
       color: ${COLORS.bgDark};
       text-transform: uppercase;
@@ -807,14 +953,14 @@ const MultiplayerRoom = () => {
     }
     .timeOptions {
       display: flex;
-      gap: 0.5vw;
+      gap: 0.5rem;
       flex-wrap: wrap;
       justify-content: center;
     }
     .timeButton {
-      padding: 0.6vh 1vw;
-      border: 0.1vh solid rgba(141, 110, 99, 0.3);
-      border-radius: 0.6vh;
+      padding: 0.6rem 1rem;
+      border: 0.125rem solid rgba(141, 110, 99, 0.3);
+      border-radius: 0.5rem;
       background-color: ${COLORS.textWhite};
       color: ${COLORS.textLight};
       cursor: pointer;
@@ -823,32 +969,43 @@ const MultiplayerRoom = () => {
       font-weight: 600;
       min-width: clamp(3rem, 6vw, 4.5rem);
       text-align: center;
-      box-shadow: 0 0.3vh 0.6vh rgba(141, 110, 99, 0.2);
+      box-shadow: 0 0.1875rem 0.375rem rgba(141, 110, 99, 0.2);
     }
     .timeButtonActive {
-      border-color: ${COLORS.textLight};
-      background-color: ${COLORS.textLight};
-      color: ${COLORS.textWhite};
-      transform: translateY(-0.1vh) scale(1.05);
-      box-shadow: 0 0.5vh 1vh rgba(141, 110, 99, 0.4);
+      border-color: #8d6e63;
+      background: linear-gradient(135deg, rgba(141, 110, 99, 0.1) 0%, rgba(109, 76, 65, 0.15) 100%);
+      color: ${COLORS.textPrimary};
+      transform: translateY(-0.125rem) scale(1.02);
+      box-shadow: 0 0 0 0.125rem rgba(141, 110, 99, 0.2), 0 0.3125rem 0.625rem rgba(141, 110, 99, 0.3);
     }
     .colorSwitchButton {
       width: 100%;
-      padding: 1vh 1.5vw;
-      border: 0.1vh solid rgba(141, 110, 99, 0.3);
-      border-radius: 1vh;
+      padding: 0.6rem; /* Adjusted padding */
+      border: 0.125rem solid rgba(141, 110, 99, 0.3);
+      border-radius: 0.75rem;
       background-color: ${COLORS.textWhite};
       cursor: pointer;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       display: flex;
       align-items: center;
       justify-content: space-between;
-      box-shadow: 0 0.3vh 1vh rgba(141, 110, 99, 0.2);
+      box-shadow: 0 0.1875rem 0.625rem rgba(141, 110, 99, 0.2);
+    }
+    .colorSwitchButton:hover {
+      border-color: #8d6e63;
+      box-shadow: 0 0.3125rem 0.9375rem rgba(141, 110, 99, 0.3);
+      transform: translateY(-0.125rem);
+    }
+    .colorSwitchButton.selected {
+      border-color: #8d6e63;
+      box-shadow: 0 0 0 0.125rem rgba(109, 76, 65, 0.4), 0 0.5rem 0.9375rem rgba(109, 76, 65, 0.3); /* More vibrant shadow */
+      background: linear-gradient(135deg, rgba(109, 76, 65, 0.15) 0%, rgba(141, 110, 99, 0.2) 100%); /* More vibrant background */
+      transform: translateY(-0.125rem) scale(1.02);
     }
     .colorPreview {
       display: flex;
       align-items: center;
-      gap: 0.8vw;
+      gap: 0.5rem;
     }
     .colorPreviewIcon {
       font-size: clamp(1rem, 2vw, 1.3rem);
@@ -862,41 +1019,59 @@ const MultiplayerRoom = () => {
       font-size: clamp(0.9rem, 1.8vw, 1.1rem);
       color: ${COLORS.textLight};
       transition: transform 0.3s ease;
+      transform: rotate(0deg); /* Initial state */
+    }
+    .colorSwitchButton.rotated .switchIcon {
+      transform: rotate(180deg); /* Rotated state */
     }
     .actionSection {
       display: flex;
       flex-direction: column;
-      gap: 1vh;
+      gap: 1rem;
       flex-shrink: 0;
       margin-top: auto;
     }
     .startButton {
-      background: linear-gradient(135deg, ${COLORS.success} 0%, ${COLORS.successDark} 100%);
+      width: 100%;
+      padding: 0.75rem; /* Converted from 1.2rem */
       border: none;
-      border-radius: 1.2vh;
-      padding: 1.2vh 1.5vw;
-      color: ${COLORS.textWhite};
+      background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
+      color: white;
+      font-weight: bold;
+      font-size: 1rem;
+      border-radius: 0.75rem; /* Converted from 1.2rem */
       cursor: pointer;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      box-shadow: 0 0.6vh 1.8vh rgba(76, 175, 80, 0.3);
+      box-shadow: 0 0.375rem 1.125rem rgba(76, 175, 80, 0.3); /* Converted from 0.6vh 1.8vh */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.3125rem; /* Converted from 0.5rem */
       position: relative;
       overflow: hidden;
     }
-    .startButtonDisabled {
+
+    .startButton:hover {
+      box-shadow: 0 0.5rem 1.25rem rgba(76, 175, 80, 0.4); /* Converted from 0.8vh 2vh */
+      transform: translateY(-0.125rem) scale(1.02); /* Converted from -2px */
+    }
+
+    .startButton:disabled {
       background: linear-gradient(135deg, #bbb 0%, #999 100%);
       cursor: not-allowed;
-      box-shadow: 0 0.3vh 1vh rgba(0, 0, 0, 0.2);
+      box-shadow: 0 0.1875rem 0.625rem rgba(0, 0, 0, 0.2); /* Converted from 0.3vh 1vh */
+      transform: none;
     }
     .startButtonContent {
       display: flex;
       align-items: center;
-      gap: 1.5vw;
+      gap: 0.5rem;
       position: relative;
       z-index: 1;
     }
     .startButtonIcon {
       font-size: clamp(1.2rem, 2.5vw, 1.8rem);
-      min-width: clamp(3rem, 6vw, 4.5rem);
+      min-width: auto;
       text-align: center;
     }
     .startButtonText {
@@ -906,7 +1081,7 @@ const MultiplayerRoom = () => {
     .startButtonTitle {
       font-size: clamp(0.9rem, 2vw, 1.2rem);
       font-weight: 700;
-      margin-bottom: 0.2vh;
+      margin-bottom: 0.1rem;
       letter-spacing: -0.01em;
     }
     .startButtonSubtitle {
@@ -920,39 +1095,51 @@ const MultiplayerRoom = () => {
       transition: transform 0.3s ease;
     }
     .readyButton {
-      background: linear-gradient(135deg, ${COLORS.accentMain} 0%, ${COLORS.accentDark} 100%);
+      width: 100%;
+      padding: 0.75rem; /* Converted from 1.2rem */
       border: none;
-      border-radius: 1.2vh;
-      padding: 1.2vh 1.5vw;
-      color: ${COLORS.textWhite};
+      background: linear-gradient(135deg, ${COLORS.accentMain} 0%, ${COLORS.accentDark} 100%);
+      color: white;
+      font-weight: bold;
+      font-size: 1rem;
+      border-radius: 0.75rem; /* Converted from 1.2rem */
       cursor: pointer;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      box-shadow: 0 0.6vh 1.8vh rgba(230, 184, 0, 0.3);
+      box-shadow: 0 0.375rem 1.125rem rgba(230, 184, 0, 0.3); /* Converted from 0.6vh 1.8vh */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.3125rem; /* Converted from 0.5rem */
       position: relative;
       overflow: hidden;
     }
+    .readyButton:hover {
+      box-shadow: 0 0.5rem 1.25rem rgba(230, 184, 0, 0.4); /* Converted from 0.8vh 2vh */
+      transform: translateY(-0.125rem) scale(1.02); /* Converted from -2px */
+    }
     .readyButton.notReady {
       background: linear-gradient(135deg, ${COLORS.textMuted} 0%, ${COLORS.textSecondary} 100%);
-      box-shadow: 0 0.6vh 1.8vh rgba(161, 136, 127, 0.3);
+      box-shadow: 0 0.375rem 1.125rem rgba(161, 136, 127, 0.3);
     }
     .readyButton:disabled {
       background: linear-gradient(135deg, #bbb 0%, #999 100%);
       cursor: not-allowed;
-      box-shadow: 0 0.3vh 1vh rgba(0, 0, 0, 0.2);
+      box-shadow: 0 0.1875rem 0.625rem rgba(0, 0, 0, 0.2); /* Converted from 0.3vh 1vh */
+      transform: none;
     }
     .waitingCard {
       background: rgba(255, 255, 255, 0.9);
-      border-radius: 1.2vh;
-      padding: 1.5vh 1.5vw;
+      border-radius: 0.75rem;
+      padding: 1.5rem;
       text-align: center;
-      border: 0.2vh dashed rgba(141, 110, 99, 0.3);
-      box-shadow: 0 0.5vh 1vh rgba(141, 110, 99, 0.1);
+      border: 0.125rem dashed rgba(141, 110, 99, 0.3);
+      box-shadow: 0 0.3125rem 0.625rem rgba(141, 110, 99, 0.1);
     }
     .waitingAnimation {
       display: flex;
       justify-content: center;
-      gap: 0.8vw;
-      margin-bottom: 1vh;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
     }
     .waitingDot {
       width: clamp(0.6rem, 1.5vw, 1rem);
@@ -965,7 +1152,7 @@ const MultiplayerRoom = () => {
       font-size: clamp(0.8rem, 2vw, 1rem);
       font-weight: 600;
       color: ${COLORS.bgDark};
-      margin-bottom: 0.5vh;
+      margin-bottom: 0.5rem;
     }
     .waitingSubtext {
       font-size: clamp(0.6rem, 1.4vw, 0.8rem);
@@ -973,33 +1160,40 @@ const MultiplayerRoom = () => {
       line-height: 1.4;
     }
     .leaveButton {
-      padding: 1vh 1.5vw;
-      background: linear-gradient(135deg, ${COLORS.danger} 0%, ${COLORS.dangerDark} 100%);
-      color: ${COLORS.textWhite};
+      width: 100%;
+      padding: 0.75rem; /* Converted from 1.2rem */
       border: none;
-      border-radius: 1vh;
-      font-size: clamp(0.7rem, 1.6vw, 0.9rem);
-      font-weight: 600;
+      background: linear-gradient(135deg, ${COLORS.danger} 0%, ${COLORS.dangerDark} 100%);
+      color: white;
+      font-weight: bold;
+      font-size: 1rem;
+      border-radius: 0.75rem; /* Converted from 1.2rem */
       cursor: pointer;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 0.375rem 1.125rem rgba(244, 67, 54, 0.3); /* Converted from 0.6vh 1.8vh */
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 0.8vw;
-      box-shadow: 0 0.3vh 1vh rgba(244, 67, 54, 0.3);
+      gap: 0.3125rem; /* Converted from 0.5rem */
+      position: relative;
+      overflow: hidden;
+    }
+    .leaveButton:hover {
+      box-shadow: 0 0.5rem 1.25rem rgba(244, 67, 54, 0.4); /* Converted from 0.8vh 2vh */
+      transform: translateY(-0.125rem) scale(1.02); /* Converted from -2px */
     }
     .loadingContainer {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 2vh;
-      padding: 3vh 2vw;
+      gap: 2rem;
+      padding: 3rem 2rem;
       text-align: center;
       background: rgba(252, 248, 243, 0.95);
       backdrop-filter: blur(10px);
-      border-radius: 1.5vh;
-      box-shadow: 0 1vh 3vh rgba(141, 110, 99, 0.2);
-      border: 0.1vh solid ${COLORS.bgLight2};
+      border-radius: 1.5rem;
+      box-shadow: 0 0.625rem 1.875rem rgba(141, 110, 99, 0.2);
+      border: 0.0625rem solid #efebe9;
     }
     .loadingSpinner {
       position: relative;
@@ -1009,8 +1203,8 @@ const MultiplayerRoom = () => {
     .spinner {
       width: 100%;
       height: 100%;
-      border: 0.3vh solid rgba(141, 110, 99, 0.3);
-      border-top: 0.3vh solid ${COLORS.textLight};
+      border: 0.1875rem solid rgba(141, 110, 99, 0.3);
+      border-top: 0.1875rem solid ${COLORS.textLight};
       border-radius: 50%;
       animation: spin 1s linear infinite;
     }
@@ -1020,8 +1214,8 @@ const MultiplayerRoom = () => {
       left: 25%;
       width: 50%;
       height: 50%;
-      border: 0.2vh solid rgba(141, 110, 99, 0.5);
-      border-bottom: 0.2vh solid ${COLORS.textSecondary};
+      border: 0.125rem solid rgba(141, 110, 99, 0.5);
+      border-bottom: 0.125rem solid ${COLORS.textSecondary};
       border-radius: 50%;
       animation: spin 2s linear infinite reverse;
     }
@@ -1038,21 +1232,21 @@ const MultiplayerRoom = () => {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 1.5vh;
-      padding: 3vh 2vw;
+      gap: 1.5rem;
+      padding: 3rem 2rem;
       text-align: center;
       background: rgba(252, 248, 243, 0.95);
-      border-radius: 1.5vh;
+      border-radius: 1.5rem;
       backdrop-filter: blur(10px);
-      border: 0.1vh solid ${COLORS.bgLight2};
-      box-shadow: 0 1vh 3vh rgba(141, 110, 99, 0.2);
+      border: 0.0625rem solid #efebe9;
+      box-shadow: 0 0.625rem 1.875rem rgba(141, 110, 99, 0.2);
     }
     .errorIcon {
       font-size: clamp(2rem, 4vw, 3rem);
     }
     .errorTitle {
       font-size: clamp(1rem, 2.5vw, 1.4rem);
-      fontWeight: 700;
+      font-weight: 700;
       color: ${COLORS.bgDark};
     }
     .errorMessage {
@@ -1061,23 +1255,33 @@ const MultiplayerRoom = () => {
       line-height: 1.4;
     }
     .errorButton {
-      padding: 1vh 1.5vw;
+      padding: 0.75rem 1.5rem;
       background-color: ${COLORS.danger};
       color: ${COLORS.textWhite};
       border: none;
-      border-radius: 1vh;
+      border-radius: 0.75rem;
       font-size: clamp(0.7rem, 1.6vw, 0.9rem);
       font-weight: 600;
       cursor: pointer;
       transition: all 0.3s ease;
-      box-shadow: 0 0.3vh 1vh rgba(244, 67, 54, 0.3);
+      box-shadow: 0 0.1875rem 0.625rem rgba(244, 67, 54, 0.3);
     }
 
     /* Responsive adjustments for mobile */
-    @media (max-width: 48rem) { /* 768px */
+    @media (max-width: 768px) {
+      .panel {
+        padding: 1rem; /* Converted from 1.5rem */
+        max-width: 90% !important; /* Set max-width to 90% for mobile screens */
+        width: 90% !important; /* Set width to 90% for mobile screens */
+      }
+      
+      .options-grid {
+        gap: 0.5rem; /* Converted from 0.8rem */
+      }
+      
       .playersArena {
         flex-direction: column !important;
-        gap: 1.5vh !important;
+        gap: 1rem !important;
       }
       .settingsGrid {
         grid-template-columns: 1fr !important;
@@ -1090,7 +1294,7 @@ const MultiplayerRoom = () => {
       .startButtonContent {
         flex-direction: column !important;
         text-align: center !important;
-        gap: 1vh !important;
+        gap: 0.5rem !important;
       }
       .startButtonText {
         text-align: center !important;
@@ -1100,76 +1304,76 @@ const MultiplayerRoom = () => {
         top: auto !important;
         right: auto !important;
         align-items: center !important;
-        margin-bottom: 1vh !important;
+        margin-bottom: 1rem !important;
       }
     }
 
-    @media (max-width: 30rem) { /* 480px */
+    @media (max-width: 480px) { /* 480px */
       .timeOptions {
         justify-content: center !important;
       }
       .colorPreview {
-        gap: 1.5vw !important;
+        gap: 0.5rem !important;
       }
-      .container {
-        padding: 1vh 3vw !important;
-        height: 95vh !important;
+      .panel {
+        padding: 1rem !important;
+        height: auto !important;
       }
       .vsDivider {
-        margin: 0.5vh 0 !important;
+        margin: 0.5rem 0 !important;
       }
     }
 
     /* Extra small screens */
-    @media (max-height: 37.5rem) { /* 600px */
-      .container {
+    @media (max-height: 600px) { /* 600px */
+      .panel {
         height: 98vh !important;
-        padding: 0.8vh 2vw !important;
+        padding: 0.8rem 1rem !important;
       }
       .header {
-        margin-bottom: 0.5vh !important;
+        margin-bottom: 0.5rem !important;
       }
       .roomCard {
-        margin-bottom: 0.5vh !important;
-        padding: 0.8vh 1.2vw !important;
+        margin-bottom: 0.5rem !important;
+        padding: 0.8rem 1rem !important;
       }
       .playersSection {
-        margin-bottom: 0.5vh !important;
+        margin-bottom: 0.5rem !important;
       }
       .settingsSection {
-        margin-bottom: 0.5vh !important;
+        margin-bottom: 0.5rem !important;
       }
       .actionSection {
-        gap: 0.5vh !important;
+        gap: 0.5rem !important;
       }
     }
 
     /* Landscape mobile */
-    @media (max-height: 31.25rem) and (orientation: landscape) { /* 500px */
-      .container {
+    @media (max-height: 500px) and (orientation: landscape) { /* 500px */
+      .panel {
         height: 95vh !important;
-        padding: 0.5vh 2vw !important;
+        padding: 0.5rem 1rem !important;
       }
       .playersArena {
         flex-direction: row !important;
-        gap: 1vw !important;
+        gap: 0.5rem !important;
       }
       .playerCard {
         min-width: clamp(12rem, 18vw, 16rem) !important;
-        padding: 0.8vh 0.8vw !important;
+        padding: 0.8rem !important;
       }
       .header {
-        margin-bottom: 0.3vh !important;
+        margin-bottom: 0.3rem !important;
       }
-      .headerIcon {
+      .header .icon {
         font-size: clamp(1.5rem, 3vw, 2rem) !important;
-        margin-bottom: 0.2vh !important;
+        margin-bottom: 0.2rem !important;
       }
-      .title {
+      .header h2 {
         font-size: clamp(1.4rem, 3vw, 1.8rem) !important;
-        margin-bottom: 0.2vh !important;
+        margin-bottom: 0.2rem !important;
       }
-      .subtitle {
+      .header p {
         font-size: clamp(0.6rem, 1.4vw, 0.8rem) !important;
       }
     }
@@ -1182,29 +1386,30 @@ const MultiplayerRoom = () => {
     return (
       <>
         <style>{`${customStyles}`}</style>
-        <div className="wrapper">
-          <div className="backgroundElements">
+        <div className="setup">
+          <div className="background-elements">
             {[...Array(8)].map((_, i) => (
               <div
                 key={i}
                 style={{
-                  top: `${10 + i * 12}vh`,
-                  left: `${5 + (i % 2) * 90}vw`,
+                  top: `${10 + i * 12}%`,
                   animationDelay: `${i * 0.7}s`,
                 }}
-                className="floatingPiece"
+                className="floating-piece"
               >
                 {["♔", "♛", "♜", "♝", "♞", "♟", "♚", "♕"][i]}
               </div>
             ))}
           </div>
-          <div className="loadingContainer">
-            <div className="loadingSpinner">
-              <div className="spinner"></div>
-              <div className="spinnerInner"></div>
+          <div className="panel">
+            <div className="loadingContainer">
+              <div className="loadingSpinner">
+                <div className="spinner"></div>
+                <div className="spinnerInner"></div>
+              </div>
+              <div className="loadingText">Setting up your chess room...</div>
+              <div className="loadingSubtext">Please wait a moment</div>
             </div>
-            <div className="loadingText">Setting up your chess room...</div>
-            <div className="loadingSubtext">Please wait a moment</div>
           </div>
         </div>
       </>
@@ -1215,33 +1420,34 @@ const MultiplayerRoom = () => {
     return (
       <>
         <style>{`${customStyles}`}</style>
-        <div className="wrapper">
-          <div className="backgroundElements">
+        <div className="setup">
+          <div className="background-elements">
             {[...Array(8)].map((_, i) => (
               <div
                 key={i}
                 style={{
-                  top: `${10 + i * 12}vh`,
-                  left: `${5 + (i % 2) * 90}vw`,
+                  top: `${10 + i * 12}%`,
                   animationDelay: `${i * 0.7}s`,
                 }}
-                className="floatingPiece"
+                className="floating-piece"
               >
                 {["♔", "♛", "♜", "♝", "♞", "♟", "♚", "♕"][i]}
               </div>
             ))}
           </div>
-          <div className="errorContainer">
-            <div className="errorIcon">🚫</div>
-            <div className="errorTitle">Oops! Something went wrong</div>
-            <div className="errorMessage">{error}</div>
-            <div style={{ display: "flex", gap: "1rem", justifyContent: "center" }}>
-              <button onClick={reconnect} className="errorButton" style={{ backgroundColor: "#4CAF50" }}>
-                🔄 Try Again
-              </button>
-              <button onClick={() => navigate("/")} className="errorButton">
-                🏠 Return Home
-              </button>
+          <div className="panel">
+            <div className="errorContainer">
+              <div className="errorIcon">🚫</div>
+              <div className="errorTitle">Oops! Something went wrong</div>
+              <div className="errorMessage">{error}</div>
+              <div style={{ display: "flex", gap: "1rem", justifyContent: "center" }}>
+                <button onClick={reconnect} className="errorButton" style={{ backgroundColor: "#4CAF50" }}>
+                  🔄 Try Again
+                </button>
+                <button onClick={() => navigate("/")} className="errorButton">
+                  🏠 Return Home
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1254,75 +1460,49 @@ const MultiplayerRoom = () => {
   return (
     <>
       <style>{`${customStyles}`}</style>
-      <div className="wrapper">
-        <div className="backgroundElements">
+      <div className="setup">
+        {/* Animated background elements */}
+        <div className="background-elements">
           {[...Array(8)].map((_, i) => (
             <div
               key={i}
+              className="floating-piece"
               style={{
-                top: `${10 + i * 12}vh`,
-                left: `${5 + (i % 2) * 90}vw`,
+                top: `${10 + i * 12}%`,
                 animationDelay: `${i * 0.7}s`,
               }}
-              className="floatingPiece"
             >
               {["♔", "♛", "♜", "♝", "♞", "♟", "♚", "♕"][i]}
             </div>
           ))}
         </div>
 
-        <div
-          style={{
-            transform: isAnimating ? "translateY(0) scale(1)" : "translateY(3vh) scale(0.95)",
-            opacity: isAnimating ? 1 : 0,
-          }}
-          className="container"
-        >
-          <div className="connectionStatus" style={{ color: statusDisplay.color }}>
-            {statusDisplay.icon} {statusDisplay.text}
-            {connectionStatus === "error" && (
-              <button
-                onClick={reconnect}
-                style={{
-                  marginLeft: "0.5rem",
-                  padding: "0.2rem 0.5rem",
-                  fontSize: "0.7rem",
-                  backgroundColor: "#4CAF50",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "0.3rem",
-                  cursor: "pointer",
-                }}
-              >
-                🔄 Reconnect
-              </button>
-            )}
-          </div>
+        <div className="panel">
+          
 
           <div className="header">
-            <div className="headerIcon">♛</div>
-            <h1 className="title">
-              <span className="titleMain">Chess</span>
-              <span className="titleAccent">Arena</span>
-            </h1>
+            <div className="icon">♛</div>
+            
           </div>
 
-          <div className="roomCard">
-            <div className="roomHeader">
-              <div className="roomIdSection">
-                <div className="roomIdLabel">Room Code</div>
-                <div className="roomIdValue">{roomId}</div>
+          <div className="options-grid">
+            <div className="card">
+              <div className="roomHeader">
+                <div className="roomIdSection">
+                  <div className="roomIdLabel">Room Code</div>
+                  <div className="roomIdValue">{roomId}</div>
+                </div>
+                <button onClick={copyRoomLink} className={`copyButton ${linkCopied ? "copyButtonSuccess" : ""}`}>
+                  {linkCopied ? <>✅ Copied!</> : <>📋 Copy Code</>}
+                </button>
               </div>
-              <button onClick={copyRoomLink} className={`copyButton ${linkCopied ? "copyButtonSuccess" : ""}`}>
-                {linkCopied ? <>✅ Copied!</> : <>📋 Copy Code</>}
-              </button>
+              <p className="shareHint">Share this code with your opponent to start the battle!</p>
             </div>
-            <div className="shareHint">Share this code with your opponent to start the battle!</div>
           </div>
 
-          <div className="playersSection">
+          <div className="options-grid">
             <div className="playersArena">
-              <div className={`playerCard ${isHostRef.current ? "playerCardActive" : ""} playerCardHost`}>
+              <div className={`playerCard ${isHostRef.current ? "selected" : ""} playerCardHost`}>
                 <div className="playerAvatar">
                   <div className="playerAvatarIcon">👑</div>
                   <div className="playerStatusBadge">HOST</div>
@@ -1344,7 +1524,7 @@ const MultiplayerRoom = () => {
               </div>
 
               <div
-                className={`playerCard ${!isHostRef.current ? "playerCardActive" : ""} ${roomData?.guestPlayer ? "" : "playerCardWaiting"}`}
+                className={`playerCard ${!isHostRef.current ? "selected" : ""} ${roomData?.guestPlayer ? "" : "playerCardWaiting"}`}
               >
                 <div className="playerAvatar">
                   <div className="playerAvatarIcon">{roomData?.guestPlayer ? "⚔️" : "⏳"}</div>
@@ -1367,38 +1547,40 @@ const MultiplayerRoom = () => {
           </div>
 
           {isHostRef.current && (
-            <div className="settingsSection">
-              <div className="settingsGrid">
-                <div className="settingCard">
-                  <div className="settingHeader">
-                    <span className="settingIcon">⏱️</span>
-                    <span className="settingLabel">Time Control</span>
-                  </div>
-                  <div className="timeOptions">
-                    {[1, 3, 5, 10, 15].map((minutes) => (
-                      <button
-                        key={minutes}
-                        className={`timeButton ${selectedTime === minutes ? "timeButtonActive" : ""}`}
-                        onClick={() => updateTimeControl(minutes)}
-                      >
-                        {minutes}min
-                      </button>
-                    ))}
-                  </div>
+            <div className="options-grid settings-options-grid">
+              <div className="card">
+                <div className="settingHeader">
+                  <span className="settingIcon">⏱️</span>
+                  <span className="settingLabel">Time Control</span>
                 </div>
-
-                <div className="settingCard">
-                  <div className="settingHeader">
-                    <span className="settingIcon">🎨</span>
-                    <span className="settingLabel">Your Color</span>
-                  </div>
-                  <button onClick={switchColors} className="colorSwitchButton">
-                    <div className="colorPreview">
-                      <span className="colorPreviewIcon">{hostColor === "w" ? "♔" : "♚"}</span>
-                      <span className="colorPreviewText">Playing as {hostColor === "w" ? "White" : "Black"}</span>
+                <div className="timeOptions">
+                  {[1, 3, 5, 10, 15].map((minutes) => (
+                    <div
+                      key={minutes}
+                      className={`card ${selectedTime === minutes ? "selected" : ""}`}
+                      onClick={() => updateTimeControl(minutes)}
+                    >
+                      <div>{minutes} min</div>
+                      <small>{minutes === 1 ? "Bullet" : minutes <= 5 ? "Blitz" : "Rapid"}</small>
                     </div>
-                    <span className="switchIcon">🔄</span>
-                  </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="card">
+                <div className="settingHeader">
+                  <span className="settingIcon">🎨</span>
+                  <span className="settingLabel">Your Color</span>
+                </div>
+                <div
+                  onClick={switchColors}
+                  className={`card colorSwitchButton ${hostColor === "w" || hostColor === "b" ? "selected" : ""} ${hostColor === "b" ? "rotated" : ""}`}
+                >
+                  <div className="colorPreview">
+                    <span className="colorPreviewIcon">{hostColor === "w" ? "♔" : "♚"}</span>
+                    <span className="colorPreviewText">Playing as {hostColor === "w" ? "White" : "Black"}</span>
+                  </div>
+                  <span className="switchIcon">🔄</span>
                 </div>
               </div>
             </div>
@@ -1411,7 +1593,8 @@ const MultiplayerRoom = () => {
                   <button
                     onClick={toggleReady}
                     disabled={!roomData?.guestPlayer}
-                    className={`readyButton ${myReady ? "" : "notReady"}`}
+                    className={`start-btn ${myReady ? "" : "notReady"}`}
+                    style={{ background: myReady ? "linear-gradient(135deg, #4caf50 0%, #45a049 100%)" : "linear-gradient(135deg, ${COLORS.textMuted} 0%, ${COLORS.textSecondary} 100%)" }}
                   >
                     <div className="startButtonContent">
                       <div className="startButtonIcon">{myReady ? "✅" : "⏳"}</div>
@@ -1428,7 +1611,7 @@ const MultiplayerRoom = () => {
                   <button
                     onClick={startGame}
                     disabled={!canStart}
-                    className={`startButton ${canStart ? "" : "startButtonDisabled"}`}
+                    className={`start-btn ${canStart ? "" : "startButtonDisabled"}`}
                   >
                     <div className="startButtonContent">
                       <div className="startButtonIcon">{canStart ? "🚀" : "⏳"}</div>
@@ -1457,7 +1640,7 @@ const MultiplayerRoom = () => {
               </div>
             )}
 
-            <button onClick={() => navigate("/")} className="leaveButton">
+            <button onClick={() => navigate("/")} className="start-btn" style={{ background: "linear-gradient(135deg, ${COLORS.danger} 0%, ${COLORS.dangerDark} 100%)" }}>
               <span className="leaveButtonIcon">🚪</span>
               <span>Retreat to Home</span>
             </button>

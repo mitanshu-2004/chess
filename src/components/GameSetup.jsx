@@ -17,6 +17,21 @@ const GameSetup = ({ playAs, setPlayAs, selectedTime, setSelectedTime, onStartGa
   }
 
   const styles = `
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      min-height: 100%;
+      box-sizing: border-box; /* Ensure consistent box model */
+      position: fixed; /* Force to cover entire viewport */
+      top: 0;
+      left: 0;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box; /* Apply globally */
+    }
+
     @keyframes float {
       0%, 100% { transform: translateY(0) rotate(0deg); }
       25% { transform: translateY(-1vh) rotate(3deg); }
@@ -35,16 +50,19 @@ const GameSetup = ({ playAs, setPlayAs, selectedTime, setSelectedTime, onStartGa
     }
 
     .setup {
-      height: 100vh;
-      width: 100vw;
+      height: 100%; /* Changed from 100vh */
+      width: 100%; /* Changed from 100vw */
       background: linear-gradient(120deg, #f2e9e4 0%, #d8cfc4 50%, #f9f4ef 100%);
       display: flex;
       align-items: center;
       justify-content: center;
       padding: 1rem;
-      position: relative;
+      position: absolute; /* Changed from relative */
+      top: 0;
+      left: 0;
       overflow: hidden;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      overflow-y: auto; /* Added to handle vertical overflow */
     }
 
     .background-elements {
@@ -70,40 +88,40 @@ const GameSetup = ({ playAs, setPlayAs, selectedTime, setSelectedTime, onStartGa
       backdrop-filter: blur(10px);
       padding: 2rem;
       border-radius: 1.5rem;
-      max-width: 700px;
-      width: 100%;
-      box-shadow: 0 1vh 3vh rgba(141, 110, 99, 0.2), 0 0 0 0.1vh rgba(255, 255, 255, 0.3);
-      border: 0.1vh solid #efebe9;
+      max-width: 50%; /* Adjusted for PC screens */
+      width: 50%; /* Adjusted for PC screens */
+      box-shadow: 0 0.625rem 1.875rem rgba(141, 110, 99, 0.2), 0 0 0 0.0625rem rgba(255, 255, 255, 0.3); /* Converted from vh */
+      border: 0.0625rem solid #efebe9; /* Converted from 0.1vh */
       position: relative;
       z-index: 1;
     }
 
     .header {
       text-align: center;
-      margin-bottom: 2rem;
+      margin-bottom: 1.5rem; /* Converted from 2rem */
     }
 
     .header .icon {
-      font-size: clamp(2rem, 4vw, 3rem);
+      font-size: clamp(2rem, 3rem, 3rem); /* Adjusted clamp values */
       color: #8d6e63;
-      text-shadow: 0 0.3vh 0.6vh rgba(141, 110, 99, 0.3);
+      text-shadow: 0 0.1875rem 0.375rem rgba(141, 110, 99, 0.3); /* Converted from 0.3vh 0.6vh */
       animation: glow 3s ease-in-out infinite alternate;
-      margin-bottom: 0.5rem;
+      margin-bottom: 0.3125rem; /* Converted from 0.5rem */
       display: block;
     }
 
     .header h2 {
-      font-size: clamp(1.8rem, 4vw, 2.5rem);
+      font-size: clamp(1.8rem, 2.5rem, 2.5rem); /* Adjusted clamp values */
       font-weight: 900;
-      margin: 0 0 0.5rem 0;
+      margin: 0 0 0.3125rem 0; /* Converted from 0.5rem */
       letter-spacing: -0.02em;
       line-height: 1.1;
       color: #8d6e63;
-      text-shadow: 0 0.1vh 0.3vh rgba(141, 110, 99, 0.3);
+      text-shadow: 0 0.0625rem 0.1875rem rgba(141, 110, 99, 0.3); /* Converted from 0.1vh 0.3vh */
     }
 
     .header p {
-      font-size: clamp(0.8rem, 1.8vw, 1rem);
+      font-size: clamp(0.8rem, 1.125rem, 1rem); /* Adjusted clamp values */
       color: #5d4037;
       font-weight: 500;
       margin: 0;
@@ -126,28 +144,28 @@ const GameSetup = ({ playAs, setPlayAs, selectedTime, setSelectedTime, onStartGa
     }
 
     .card {
-      border: 2px solid rgba(141, 110, 99, 0.3);
+      border: 0.125rem solid rgba(141, 110, 99, 0.3); /* Converted from 2px */
       padding: 1rem;
-      border-radius: 12px;
+      border-radius: 0.75rem; /* Converted from 12px */
       text-align: center;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       background: rgba(255, 255, 255, 0.9);
       cursor: pointer;
       color: ${COLORS.textPrimary};
-      box-shadow: 0 0.3vh 1vh rgba(141, 110, 99, 0.2);
+      box-shadow: 0 0.1875rem 0.625rem rgba(141, 110, 99, 0.2); /* Converted from 0.3vh 1vh */
     }
 
     .card:hover {
       border-color: #8d6e63;
-      box-shadow: 0 0.5vh 1.5vh rgba(141, 110, 99, 0.3);
-      transform: translateY(-2px);
+      box-shadow: 0 0.3125rem 0.9375rem rgba(141, 110, 99, 0.3); /* Converted from 0.5vh 1.5vh */
+      transform: translateY(-0.125rem); /* Converted from -2px */
     }
 
     .card.selected {
       border-color: #8d6e63;
-      box-shadow: 0 0 0 0.2vh rgba(141, 110, 99, 0.2), 0 0.8vh 1.5vh rgba(141, 110, 99, 0.3);
+      box-shadow: 0 0 0 0.125rem rgba(141, 110, 99, 0.2), 0 0.5rem 0.9375rem rgba(141, 110, 99, 0.3); /* Converted from 0.2vh 0.8vh 1.5vh */
       background: linear-gradient(135deg, rgba(141, 110, 99, 0.1) 0%, rgba(109, 76, 65, 0.15) 100%);
-      transform: translateY(-2px) scale(1.02);
+      transform: translateY(-0.125rem) scale(1.02); /* Converted from -2px */
     }
 
     .card div {
@@ -163,76 +181,52 @@ const GameSetup = ({ playAs, setPlayAs, selectedTime, setSelectedTime, onStartGa
       color: ${COLORS.textPrimary};
     }
 
-    .preview {
-      margin-bottom: 2rem;
-      display: flex;
-      gap: 1rem;
-      justify-content: space-between;
-      color: ${COLORS.textPrimary};
-      font-size: 0.9rem;
-    }
-
-    .preview div {
-      flex: 1;
-      background: rgba(255, 255, 255, 0.9);
-      padding: 1rem;
-      border-radius: 10px;
-      border: 0.1vh solid rgba(141, 110, 99, 0.2);
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-      box-shadow: 0 0.5vh 1vh rgba(141, 110, 99, 0.1);
-    }
-
-    .preview svg {
-      color: #8d6e63;
-    }
-
     .start-btn {
       width: 100%;
-      padding: 1.2rem;
+      padding: 0.75rem; /* Converted from 1.2rem */
       border: none;
       background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
       color: white;
       font-weight: bold;
       font-size: 1rem;
-      border-radius: 1.2rem;
+      border-radius: 0.75rem; /* Converted from 1.2rem */
       cursor: pointer;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      box-shadow: 0 0.6vh 1.8vh rgba(76, 175, 80, 0.3);
+      box-shadow: 0 0.375rem 1.125rem rgba(76, 175, 80, 0.3); /* Converted from 0.6vh 1.8vh */
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 0.5rem;
+      gap: 0.3125rem; /* Converted from 0.5rem */
       position: relative;
       overflow: hidden;
     }
 
     .start-btn:hover {
-      box-shadow: 0 0.8vh 2vh rgba(76, 175, 80, 0.4);
-      transform: translateY(-2px) scale(1.02);
+      box-shadow: 0 0.5rem 1.25rem rgba(76, 175, 80, 0.4); /* Converted from 0.8vh 2vh */
+      transform: translateY(-0.125rem) scale(1.02); /* Converted from -2px */
     }
 
     .start-btn:disabled {
       background: linear-gradient(135deg, #bbb 0%, #999 100%);
       cursor: not-allowed;
-      box-shadow: 0 0.3vh 1vh rgba(0, 0, 0, 0.2);
+      box-shadow: 0 0.1875rem 0.625rem rgba(0, 0, 0, 0.2); /* Converted from 0.3vh 1vh */
       transform: none;
     }
 
     @media (max-width: 768px) {
       .panel {
-        padding: 1.5rem;
-        margin: 1rem;
+        padding: 1rem; /* Converted from 1.5rem */
+        max-width: 90% !important; /* Set max-width to 90% for mobile screens */
+        width: 90% !important; /* Set width to 90% for mobile screens */
       }
       
       .options-grid {
-        gap: 0.8rem;
+        gap: 0.5rem; /* Converted from 0.8rem */
       }
       
       .preview {
         flex-direction: column;
-        gap: 0.8rem;
+        gap: 0.5rem; /* Converted from 0.8rem */
       }
     }
   `
@@ -249,7 +243,6 @@ const GameSetup = ({ playAs, setPlayAs, selectedTime, setSelectedTime, onStartGa
               className="floating-piece"
               style={{
                 top: `${10 + i * 12}%`,
-                left: `${5 + (i % 2) * 90}%`,
                 animationDelay: `${i * 0.7}s`,
               }}
             >
@@ -287,19 +280,6 @@ const GameSetup = ({ playAs, setPlayAs, selectedTime, setSelectedTime, onStartGa
                 <small>{opt.description}</small>
               </div>
             ))}
-          </div>
-
-          <div className="preview">
-            <div>
-              <User size={16} /> {username} <br />
-              Color: {playAs === "w" ? "White" : "Black"} <br />
-              Time: {selectedTime || "--"} min
-            </div>
-            <div>
-              <Bot size={16} /> Stockfish <br />
-              Color: {playAs === "w" ? "Black" : "White"} <br />
-              Time: {selectedTime || "--"} min
-            </div>
           </div>
 
           <button onClick={handleStartGame} disabled={!selectedTime} className="start-btn">
