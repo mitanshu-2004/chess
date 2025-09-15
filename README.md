@@ -17,10 +17,21 @@ A live demo of the project is available here: [https://chesstra.vercel.app/](htt
 *   **Firebase:** (Potentially) for multiplayer features (Firestore).
 *   **Lucide React:** Icon library.
 
-## Methodologies
 
-*   **Component-Based Architecture:** UI built with reusable React components.
-*   **Custom Hooks:** Encapsulation of reusable stateful logic.
-*   **Environment Variables:** Configuration management for API keys and URLs.
-*   **Modular Styling:** Centralized color palette (`colors.js`) and inline CSS for component-specific styles.
-*   **Responsive Design:** Media queries for adaptability across devices.
+
+## Running the project
+
+To run the project locally, follow these steps:
+
+1.  **Install dependencies:**
+    ```bash
+    npm install
+    ```
+
+2.  **Start the development server:**
+    ```bash
+    npm run dev
+    ```
+
+This will start the application in development mode, usually accessible at `http://localhost:5173`.
+
