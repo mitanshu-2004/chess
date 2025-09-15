@@ -33,7 +33,7 @@ function getBestMove(fen, callback) {
     console.error("Stockfish error:", data.toString());
   });
 
-  engine.on("close", (code) => {
+  engine.on("close", () => {
     if (!bestMove) {
       console.log("Engine closed without bestmove.");
       callback(null);
@@ -54,6 +54,10 @@ app.post("/api/bestmove", (req, res) => {
     if (!move) return res.status(500).json({ error: "No move found" });
     res.json({ bestMove: move });
   });
+});
+
+app.get("/api/health", (req, res) => {
+  res.json({ status: "ok", message: "♟️ Stockfish API is running" });
 });
 
 app.listen(port, () => {
