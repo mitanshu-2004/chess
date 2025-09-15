@@ -14,7 +14,6 @@ const MultiplayerRoom = () => {
   const username = searchParams.get("username")
 
   const [roomData, setRoomData] = useState(null)
-  const [isHost, setIsHost] = useState(false)
   const [selectedTime, setSelectedTime] = useState(5)
   const [hostColor, setHostColor] = useState("w")
   const [loading, setLoading] = useState(true)
@@ -113,13 +112,13 @@ const MultiplayerRoom = () => {
   // Cleanup on unmount
   useEffect(() => {
     return cleanup
-  }, [])
+  }, [cleanup])
 
   useEffect(() => {
     setTimeout(() => setIsAnimating(true), 100)
     const cleanup = monitorConnection()
     return cleanup
-  }, [])
+  }, [monitorConnection])
 
   useEffect(() => {
     if (!username || !roomId) {
@@ -196,7 +195,6 @@ const MultiplayerRoom = () => {
         }
 
         isHostRef.current = currentIsHost
-        setIsHost(currentIsHost)
         setLoading(false)
         setConnectionStatus("connected")
 
@@ -212,7 +210,7 @@ const MultiplayerRoom = () => {
     }
 
     setupRoom()
-  }, [roomId, username])
+  }, [roomId, username, loading, startHeartbeat])
 
   // Enhanced real-time listener with better error handling
   const setupRealtimeListener = useCallback(() => {
@@ -255,12 +253,12 @@ const MultiplayerRoom = () => {
           setConnectionStatus("error")
         }
       },
-      (error) => {
-        console.error("Real-time listener error:", error)
+      () => {
+        console.error("Real-time listener error: An unknown error occurred.")
         setConnectionStatus("error")
       },
     )
-  }, [])
+  }, [navigate, roomId])
 
   // Manual reconnection function
   const reconnect = useCallback(() => {
@@ -268,7 +266,7 @@ const MultiplayerRoom = () => {
     setConnectionStatus("connecting")
     setError("")
     setupRealtimeListener()
-  }, [])
+  }, [setupRealtimeListener])
 
   useEffect(() => {
     if (loading || error) return
@@ -287,7 +285,7 @@ const MultiplayerRoom = () => {
         clearTimeout(reconnectTimeoutRef.current)
       }
     }
-  }, [loading, error])
+  }, [loading, error, setupRealtimeListener])
 
   // Toggle Ready State
   const toggleReady = async () => {
@@ -418,7 +416,7 @@ const MultiplayerRoom = () => {
       await navigator.clipboard.writeText(roomCode)
       setLinkCopied(true)
       setTimeout(() => setLinkCopied(false), 3000)
-    } catch (err) {
+    } catch {
       alert("Failed to copy room code. Please copy manually: " + roomCode)
     }
   }

@@ -5,11 +5,6 @@ import { Flag, RotateCcw } from "lucide-react"
 const MoveHistory = ({
   moveHistory = [],
   onResign,
-  onNewGame,
-  playerName = "Player",
-  opponentName = "Opponent",
-  playerRating = 1000,
-  opponentRating = 1000,
   timeControl = 5,
   gameType = "vs Engine",
 }) => {
