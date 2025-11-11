@@ -14,7 +14,7 @@ A live demo of the project is available here: [https://chesstra.vercel.app/](htt
 *   **React Router DOM:** Declarative routing for React.
 *   **Axios:** Promise-based HTTP client for API requests.
 *   **Chess.js:** JavaScript chess library for game logic.
-*   **Firebase:** (Potentially) for multiplayer features (Firestore).
+*   **Firebase:** for multiplayer features .
 *   **Lucide React:** Icon library.
 
 
