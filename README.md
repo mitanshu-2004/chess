@@ -1,42 +1,27 @@
 # Chesstra
 
-Multiplayer + single-player chess. React + Vite frontend; Firestore for real-time multiplayer; a separate Stockfish-backed FastAPI service powers bot mode.
+Multiplayer chess in the browser, plus a single-player mode against a Stockfish engine that runs in a separate FastAPI service. React + Vite for the frontend, Firestore for the multiplayer sync, `chess.js` for rule validation.
 
-**Live:** [chesstra.vercel.app](https://chesstra.vercel.app/)
+Live at https://chesstra.vercel.app.
 
-## Features
+## How the multiplayer sync actually works
 
-- **Bot mode** — play against Stockfish, served from a separate FastAPI engine (configurable via `VITE_API`). On app load, the client wakes the engine with a health ping so the first move isn't blocked by a cold-start dyno.
-- **Multiplayer mode** — Firestore-backed real-time games with shareable room links, ready-up flow, host/guest color swap, configurable time control, forfeit, rematch.
-- **Move history, captured pieces, last-move highlight, in-check indicator, and a game-over modal** that surfaces the exact reason (checkmate, stalemate, insufficient material, threefold repetition, timeout, forfeit).
+Firestore is last-write-wins, which is fine for chess (moves are atomic and turn-ordered), but you still get spurious re-renders from echoed snapshots and write-bursts during fast play. Each game document carries a monotonic `version` counter; every client tracks the last version it processed and drops snapshots with a version it has already seen. State application is idempotent — the same incoming write applied twice doesn't move the game forward twice.
 
-## Architecture
+Same idea covers presence and the clock. Each player writes `hostLastSeen` / `guestLastSeen` every 5 seconds; the opponent is shown as disconnected if more than 15 seconds pass without an update. Timer state is throttled to one Firestore write every 3 seconds — without that, a one-minute bullet game would burn a few hundred document writes for no reason.
 
-The multiplayer sync layer is intentionally simple but defensive.
+There's a fallback for the "moving player crashes mid-move" case too. Opponent's client runs `chess.js` locally and detects the end-state itself; if the document was never updated by the original mover, the opponent's client writes the resolution back. Without that, a disconnected player would leave the game in a half-finished state forever.
 
-- **`onSnapshot` + a monotonic `version` counter** for idempotent dedup. Every write bumps `version`; clients skip already-seen updates. This is not conflict resolution (Firestore's last-write-wins handles ordering) — it prevents redundant re-renders and stale-snapshot echoes during rapid bursts.
-- **Server-authoritative game-over with client fallback.** If the moving client crashes before writing the end-state, the opponent's client detects it locally via `chess.js` and writes the resolution back so the game can't get stuck.
-- **Presence heartbeats.** Each player writes `hostLastSeen` / `guestLastSeen` every 5 s; the opponent is shown as disconnected after a 15 s gap.
-- **Throttled timer writes.** Countdown updates only every 3 s to keep Firestore document writes low.
-- **Optimistic UI with rollback.** Local mutations apply immediately and revert on Firestore failure (time-control changes, color swap, ready state).
-- **Debounced snapshot processing.** A 50 ms `setTimeout` coalesces rapid Firestore bursts.
+## Bot mode
 
-## Backend
-
-The Stockfish engine lives in a separate FastAPI repo deployed independently. Configure via the `VITE_API` env var pointing at the engine host. The client uses a `/api/health` ping on mount to warm the dyno; `/api/bestmove` returns the engine's reply.
-
-## Stack
-
-React 19 · Vite 7 · React Router · Firebase (Firestore) · chess.js · Axios · Lucide React. ESLint 9 flat config.
+`POST /api/bestmove` on a separate FastAPI service. Cold-start dynos take a few seconds to wake, so the client hits `/api/health` once on app mount — by the time the user actually plays a move against the bot, the engine is already warm. The backend URL is configurable via `VITE_API`.
 
 ## Running locally
 
 ```bash
 npm install
-# add .env with VITE_API + Firebase config
-npm run dev    # http://localhost:5173
-npm run lint
-npm run build
+# .env with VITE_API= (Stockfish backend URL) and Firebase config
+npm run dev
 ```
 
-A Firebase project (Firestore enabled) and a deployed Stockfish FastAPI endpoint are required for full functionality. The single-player engine UI also works locally against a self-hosted backend.
+Multiplayer needs a Firebase project with Firestore enabled. Bot mode needs the Stockfish service running somewhere reachable; the engine lives in its own repo.
